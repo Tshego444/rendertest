@@ -1236,7 +1236,7 @@ app.delete('/users/:id', verifyToken, ensureRole('admin'), async (req, res) => {
 
 
 // Default route
-
+// app.get('/', (req, res) => res.send('Server is running! Try /jobs'));
 
 // -------------------- DB connect + single-start server --------------------
 async function startServer() {
@@ -1257,7 +1257,7 @@ async function startServer() {
     }
   }
 
- // -------------------- AI CHATBOT (OPTIONAL) --------------------
+  // -------------------- AI CHATBOT (OPTIONAL) --------------------
 let aiAvailable = false;
 let processQuery = null;
 
@@ -1286,7 +1286,7 @@ app.post('/api/chat', async (req, res) => {
       console.log('⚠️ AI not available, returning fallback message');
       return res.status(503).json({ 
         error: 'AI service temporarily unavailable',
-        response: 'The AI assistant is currently unavailable. Please try again later or contact support for help with JobSeekr features.',
+        response: 'The AI assistant is currently unavailable. Please try again later or contact support.',
         message: 'AI service not initialized' 
       });
     }
@@ -1302,13 +1302,23 @@ app.post('/api/chat', async (req, res) => {
     console.error('❌ AI chat error:', error);
     return res.status(500).json({ 
       error: 'Failed to process chat request',
-      response: 'I encountered an error. Please try rephrasing your question or contact support.',
+      response: 'I encountered an error. Please try rephrasing your question.',
       message: error.message 
     });
   }
 });
 
-  
+  const HOST = process.env.HOST || '0.0.0.0';
+  const PORT = process.env.PORT || 3000;
+  // AFTER all API routes, BEFORE app.listen()
+  if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    app.use(express.static(path.join(__dirname, '../Frontend/dist')));
+    
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, '../Frontend/dist/index.html'));
+    });
+  }
 
   const server = app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
