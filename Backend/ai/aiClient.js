@@ -1,5 +1,4 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config();
 const { default: ModelClient, isUnexpected } = require("@azure-rest/ai-inference");
 const { AzureKeyCredential } = require("@azure/core-auth");
 const { getJobSeekrKnowledge } = require('./loadPDF.js'); // Import your PDF reader
@@ -8,8 +7,6 @@ const token = process.env["token"];
 const endpoint = "https://models.github.ai/inference";
 const model = "openai/GPT-4.1-nano";
 
-console.log("AI Token loaded:", token ? "YES (hidden)" : "NO - MISSING!");
-console.log("Token length:", token ? token.length : 0);
 class JobSeekrAI {
   constructor() {
     this.client = ModelClient(endpoint, new AzureKeyCredential(token));
