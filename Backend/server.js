@@ -1235,32 +1235,9 @@ app.delete('/users/:id', verifyToken, ensureRole('admin'), async (req, res) => {
 
 
 
-// Default route
-// app.get('/', (req, res) => res.send('Server is running! Try /jobs'));
+// ==================== AI CHATBOT SECTION - PUT THIS RIGHT HERE ====================
+// (BEFORE the startServer function, around line 1220)
 
-// -------------------- DB connect + single-start server --------------------
-async function startServer() {
-  console.log('Starting server: attempting MongoDB connection...');
-  console.log('MONGO_URI present?', !!MONGO_URI ? 'YES (hidden)' : 'NO');
-
-  console.log('\n🤖 Initializing AI Bot...');
-  const botReady = await initializeBot();
-
-  try {
-    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-    console.log('Connected to MongoDB');
-    try { await seedAdmin(); } catch (e) { console.error('Seed admin error (non-fatal):', e); }
-  } catch (err) {
-    console.error('MongoDB connection error (caught):', err && err.message ? err.message : err);
-    if (process.env.NODE_ENV === 'production') {
-      console.error('Exiting because DB connection failed in production.');
-      process.exit(1);
-    } else {
-      console.warn('Continuing without DB (development only). DB-backed routes will fail.');
-    }
-  }
-
-// ==================== AI CHATBOT SECTION (KEEP THIS ONE) ====================
 let botModule = null;
 let botInitialized = false;
 let botInitError = null;
@@ -1385,6 +1362,41 @@ app.get('/api/bot/health', (req, res) => {
 });
 
 // ==================== END AI CHATBOT SECTION ====================
+
+// Default route
+// app.get('/', (req, res) => res.send('Server is running! Try /jobs'));
+
+// -------------------- DB connect + single-start server --------------------
+async function startServer() {
+  console.log('Starting server: attempting MongoDB connection...');
+  console.log('MONGO_URI present?', !!MONGO_URI ? 'YES (hidden)' : 'NO');
+
+  console.log('\n🤖 Initializing AI Bot...');
+  const botReady = await initializeBot();
+  
+  if (botReady) {
+    console.log('✅ Bot ready for requests');
+  } else {
+    console.warn('⚠️ Bot initialization failed, continuing without AI features');
+    console.warn('   Error:', botInitError?.message || 'Unknown');
+  }
+
+  try {
+    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+    console.log('Connected to MongoDB');
+    try { await seedAdmin(); } catch (e) { console.error('Seed admin error (non-fatal):', e); }
+  } catch (err) {
+    console.error('MongoDB connection error (caught):', err && err.message ? err.message : err);
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Exiting because DB connection failed in production.');
+      process.exit(1);
+    } else {
+      console.warn('Continuing without DB (development only). DB-backed routes will fail.');
+    }
+  }
+
+
+
   const HOST = process.env.HOST || '0.0.0.0';
   const PORT = process.env.PORT || 3000;
   // AFTER all API routes, BEFORE app.listen()
