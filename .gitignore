@@ -1,0 +1,62 @@
+# =========================================
+# 👾 JobSeekr Project Git Ignore
+# (Node.js + Vue + AI backend)
+# =========================================
+
+# === Node.js & Backend ===
+node_modules/
+.env
+.env.local
+.env.production
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# === Build Output ===
+dist/
+build/
+.cache/
+.tmp/
+
+# === Logs ===
+logs
+*.log
+*.log.*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# === System Files ===
+.DS_Store
+Thumbs.db
+
+# === VSCode & IDE ===
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# === Test Coverage ===
+coverage/
+*.lcov
+
+# === Temporary Files ===
+*.tmp
+*.swp
+*.bak
+
+# === Python Virtual Env (if any AI scripts) ===
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# === Other sensitive data ===
+/ai/__pycache__/
+/ai/data/
+/ai/tmp/
