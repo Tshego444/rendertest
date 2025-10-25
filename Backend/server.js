@@ -1259,7 +1259,6 @@ async function startServer() {
 
 // -------------------- AI CHATBOT (INTEGRATED WITH bot.js) -------------------- 
 let botModule = null;
-let botReady = false;
 
 try {
   console.log('🤖 Loading bot.js module...');
@@ -1268,16 +1267,13 @@ try {
   botModule = require('./ai/bot.js');
   console.log('✅ Bot module loaded successfully');
   
-  // Give it a moment to initialize
+  // Log status after a delay (optional, for debugging only)
   setTimeout(() => {
-    if (botModule.getStatus) {
+    if (botModule && botModule.getStatus) {
       const status = botModule.getStatus();
-      console.log('🔍 Bot status:', status);
-      botReady = status.initialized;
-    } else {
-      botReady = true; // Assume ready if no status function
+      console.log('📊 Bot initialization status:', JSON.stringify(status, null, 2));
     }
-  }, 2000);
+  }, 5000); // Give it 5 seconds instead of 2
   
 } catch (error) {
   console.error('⚠️ Bot module failed to load:', error.message);

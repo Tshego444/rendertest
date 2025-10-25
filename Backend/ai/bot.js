@@ -262,6 +262,7 @@ const conversationContext = new ConversationContext();
 
 let isInitialized = false;
 let initializationPromise = null;
+let initializationError = null;
 
 // Start initialization when module loads
 function ensureInitialized() {
@@ -269,16 +270,28 @@ function ensureInitialized() {
     return Promise.resolve();
   }
   
+  if (initializationError) {
+    return Promise.reject(initializationError);
+  }
+  
   if (!initializationPromise) {
+    console.log('🚀 Starting JobSeekr Bot Module initialization...');
+    
     initializationPromise = (async () => {
-      console.log('🚀 Initializing JobSeekr Bot Module...');
       try {
+        console.log('⏳ Calling qp.initialize()...');
         await qp.initialize();
+        
         console.log('🧠 Context Memory initialized');
-        console.log('✅ Bot module ready');
+        console.log('📊 Final stats:', qp.getStats());
+        
         isInitialized = true;
+        console.log('✅ Bot module FULLY ready - isInitialized =', isInitialized);
+        
       } catch (error) {
         console.error('❌ Bot initialization failed:', error);
+        console.error('Stack:', error.stack);
+        initializationError = error;
         throw error;
       }
     })();
@@ -287,8 +300,11 @@ function ensureInitialized() {
   return initializationPromise;
 }
 
-// Start initialization immediately
-ensureInitialized();
+// Start initialization immediately when module loads
+console.log('🔧 Bot module loading - starting initialization...');
+ensureInitialized().catch(err => {
+  console.error('💥 Failed to initialize bot on module load:', err);
+});
 
 // Export the instances and handler function
 module.exports = {
@@ -297,12 +313,26 @@ module.exports = {
   
   // Main chat handler function that server.js can call
   async handleChat(message, sessionId = null) {
+    const startTime = Date.now();
     console.log('\n🔄 Bot processing message:', message.substring(0, 50));
+    console.log('   isInitialized at start:', isInitialized);
     
     // CRITICAL: Ensure bot is initialized before processing
     if (!isInitialized) {
-      console.log('⏳ Waiting for bot initialization...');
-      await ensureInitialized();
+      console.log('⏳ Bot not ready yet, waiting for initialization...');
+      try {
+        await ensureInitialized();
+        console.log('✅ Initialization complete, proceeding...');
+      } catch (error) {
+        console.error('❌ Initialization failed:', error);
+        return {
+          response: "The bot is still starting up. Please try again in a moment.",
+          source: "error",
+          confidence: 0,
+          sessionId: sessionId || conversationContext.generateSessionId(),
+          error: "Bot initialization failed"
+        };
+      }
     }
     
     if (!sessionId) {
@@ -321,16 +351,19 @@ module.exports = {
 
     try {
       console.log('🔍 Processing query with context...');
-      console.log(`   Bot initialized: ${isInitialized}`);
-      console.log(`   FAQ count: ${qp.faqDatabase ? qp.faqDatabase.faqs.length : 0}`);
+      console.log('   Bot initialized:', isInitialized);
+      console.log('   FAQ count:', qp.faqDatabase ? qp.faqDatabase.faqs.length : 0);
+      console.log('   Embeddings count:', qp.faqEmbeddings ? qp.faqEmbeddings.length : 0);
+      console.log('   Semantic model loaded:', !!qp.embedder);
       
       const result = await qp.processQuery(message);
       
-      console.log(`   Result from processQuery:`, {
+      console.log('   processQuery returned:', {
         source: result.source,
         confidence: result.confidence,
-        hasResponse: !!result.response,
-        responseLength: result.response?.length || 0
+        responseLength: result.response?.length || 0,
+        intent: result.intent,
+        category: result.category
       });
       
       const session = conversationContext.updateSession(sessionId, message, result.response, result);
@@ -345,18 +378,21 @@ module.exports = {
       result.sessionId = sessionId;
       result.sessionStats = conversationContext.getSessionStats(sessionId);
       
-      console.log('✅ Query processed with context:');
-      console.log(`   Source: ${result.source}`);
-      console.log(`   Category: ${result.category || 'N/A'}`);
-      console.log(`   Confidence: ${result.confidence}`);
-      console.log(`   Session messages: ${result.sessionStats.messageCount}`);
-      console.log(`   Topics discussed: ${result.sessionStats.topicsDiscussed.join(', ')}`);
-      console.log(`   Response preview: ${result.response.substring(0, 100)}...`);
+      const processingTime = Date.now() - startTime;
       
-      // Artificial delay for FAQ responses
-      if (result.source === "faq") {
-        console.log("⏳ Simulating 2.5s delay for FAQ response...");
-        await new Promise(resolve => setTimeout(resolve, 2500));
+      console.log('✅ Query processed successfully:');
+      console.log('   Source:', result.source);
+      console.log('   Category:', result.category || 'N/A');
+      console.log('   Confidence:', result.confidence);
+      console.log('   Processing time:', processingTime, 'ms');
+      console.log('   Session messages:', result.sessionStats.messageCount);
+      console.log('   Response preview:', result.response.substring(0, 100) + '...');
+      
+      // Artificial delay for FAQ responses (make it feel more natural)
+      if (result.source === "faq" && processingTime < 2500) {
+        const delay = 2500 - processingTime;
+        console.log(`⏳ Adding ${delay}ms delay for FAQ response naturalness...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
       
       return result;
@@ -378,7 +414,11 @@ module.exports = {
   getStatus() {
     return {
       initialized: isInitialized,
+      initializationInProgress: !!initializationPromise && !isInitialized,
+      hasError: !!initializationError,
+      error: initializationError?.message || null,
       faqCount: qp.faqDatabase ? qp.faqDatabase.faqs.length : 0,
+      embeddingsCount: qp.faqEmbeddings ? qp.faqEmbeddings.length : 0,
       semanticModelLoaded: qp.embedder !== null,
       aiReady: qp.aiClient && qp.aiClient.knowledgeBase !== null
     };
