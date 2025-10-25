@@ -1260,9 +1260,7 @@ async function startServer() {
     }
   }
 
-// ==================== AI CHATBOT SECTION ONLY ====================
-// Replace ONLY the AI section in your server.js (around line 650-750)
-
+// ==================== AI CHATBOT SECTION (KEEP THIS ONE) ====================
 let botModule = null;
 let botInitialized = false;
 let botInitError = null;
@@ -1299,7 +1297,7 @@ async function initializeBot() {
   }
 }
 
-// Simple chat endpoint that delegates to bot.js
+// Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
     console.log('🤖 AI chat request received');
@@ -1309,7 +1307,6 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Check if bot module is available
     if (!botModule) {
       console.log('⚠️ Bot module not available');
       return res.status(503).json({ 
@@ -1319,7 +1316,6 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Check if bot finished initializing
     if (!botInitialized) {
       console.log('⚠️ Bot not fully initialized yet');
       return res.status(503).json({ 
@@ -1334,19 +1330,11 @@ app.post('/api/chat', async (req, res) => {
       console.log('🔑 Session ID:', sessionId.substring(0, 8) + '...');
     }
     
-    // Check bot status before calling
-    if (botModule.getStatus) {
-      const status = botModule.getStatus();
-      console.log('🔍 Bot status before processing:', status);
-    }
-    
-    // Call bot's handleChat function
     const result = await botModule.handleChat(message, sessionId);
     
     console.log('✅ Response generated');
     console.log(`   Source: ${result.source}`);
     console.log(`   Confidence: ${result.confidence}`);
-    console.log(`   Response length: ${result.response?.length || 0}`);
     
     return res.json(result);
     
@@ -1361,7 +1349,6 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Session info endpoint
 app.get('/api/bot/status', (req, res) => {
   try {
     if (!botModule) {
@@ -1388,7 +1375,6 @@ app.get('/api/bot/status', (req, res) => {
   }
 });
 
-// Health check for debugging
 app.get('/api/bot/health', (req, res) => {
   res.json({
     botModule: !!botModule,
