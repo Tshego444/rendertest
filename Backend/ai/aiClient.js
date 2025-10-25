@@ -8,6 +8,8 @@ const token = process.env["token"];
 const endpoint = "https://models.github.ai/inference";
 const model = "openai/GPT-4.1-nano";
 
+console.log("AI Token loaded:", token ? "YES (hidden)" : "NO - MISSING!");
+console.log("Token length:", token ? token.length : 0);
 class JobSeekrAI {
   constructor() {
     this.client = ModelClient(endpoint, new AzureKeyCredential(token));
