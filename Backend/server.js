@@ -1259,11 +1259,26 @@ async function startServer() {
 
 // -------------------- AI CHATBOT (INTEGRATED WITH bot.js) -------------------- 
 let botModule = null;
+let botReady = false;
 
 try {
   console.log('🤖 Loading bot.js module...');
+  console.log('📁 Bot module path:', path.join(__dirname, 'ai/bot.js'));
+  
   botModule = require('./ai/bot.js');
   console.log('✅ Bot module loaded successfully');
+  
+  // Give it a moment to initialize
+  setTimeout(() => {
+    if (botModule.getStatus) {
+      const status = botModule.getStatus();
+      console.log('🔍 Bot status:', status);
+      botReady = status.initialized;
+    } else {
+      botReady = true; // Assume ready if no status function
+    }
+  }, 2000);
+  
 } catch (error) {
   console.error('⚠️ Bot module failed to load:', error.message);
   console.error('Full error:', error.stack);
@@ -1295,16 +1310,25 @@ app.post('/api/chat', async (req, res) => {
       console.log('🔑 Session ID:', sessionId.substring(0, 8) + '...');
     }
     
+    // Check bot status before calling
+    if (botModule.getStatus) {
+      const status = botModule.getStatus();
+      console.log('🔍 Bot status before processing:', status);
+    }
+    
     // Call bot's handleChat function
     const result = await botModule.handleChat(message, sessionId);
     
     console.log('✅ Response generated');
     console.log(`   Source: ${result.source}`);
+    console.log(`   Confidence: ${result.confidence}`);
+    console.log(`   Response length: ${result.response?.length || 0}`);
     
     return res.json(result);
     
   } catch (error) {
     console.error('❌ AI chat error:', error);
+    console.error('Stack:', error.stack);
     return res.status(500).json({ 
       error: 'Failed to process chat request',
       response: 'I encountered an error. Please try rephrasing your question.',
@@ -1314,19 +1338,27 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Session info endpoint
-app.get('/api/session/:sessionId', (req, res) => {
+app.get('/api/bot/status', (req, res) => {
   try {
-    if (!botModule || !botModule.conversationContext) {
-      return res.status(503).json({ error: 'Bot module not available' });
+    if (!botModule) {
+      return res.json({ 
+        available: false, 
+        message: 'Bot module not loaded' 
+      });
     }
-    const { sessionId } = req.params;
-    const stats = botModule.conversationContext.getSessionStats(sessionId);
-    res.json(stats);
+    
+    const status = botModule.getStatus ? botModule.getStatus() : { available: true };
+    return res.json({ 
+      available: true, 
+      ...status 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      available: false, 
+      error: error.message 
+    });
   }
 });
-
 
   const HOST = process.env.HOST || '0.0.0.0';
   const PORT = process.env.PORT || 3000;

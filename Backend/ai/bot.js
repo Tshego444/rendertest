@@ -256,16 +256,39 @@ class ConversationContext {
 }
 
 // Initialize query processor and context
+// Initialize query processor and context
 const qp = new QueryProcessor();
 const conversationContext = new ConversationContext();
 
-// Initialize on module load
-(async () => {
-  console.log('🚀 Initializing JobSeekr Bot Module...');
-  await qp.initialize();
-  console.log('🧠 Context Memory initialized');
-  console.log('✅ Bot module ready');
-})();
+let isInitialized = false;
+let initializationPromise = null;
+
+// Start initialization when module loads
+function ensureInitialized() {
+  if (isInitialized) {
+    return Promise.resolve();
+  }
+  
+  if (!initializationPromise) {
+    initializationPromise = (async () => {
+      console.log('🚀 Initializing JobSeekr Bot Module...');
+      try {
+        await qp.initialize();
+        console.log('🧠 Context Memory initialized');
+        console.log('✅ Bot module ready');
+        isInitialized = true;
+      } catch (error) {
+        console.error('❌ Bot initialization failed:', error);
+        throw error;
+      }
+    })();
+  }
+  
+  return initializationPromise;
+}
+
+// Start initialization immediately
+ensureInitialized();
 
 // Export the instances and handler function
 module.exports = {
@@ -275,6 +298,12 @@ module.exports = {
   // Main chat handler function that server.js can call
   async handleChat(message, sessionId = null) {
     console.log('\n🔄 Bot processing message:', message.substring(0, 50));
+    
+    // CRITICAL: Ensure bot is initialized before processing
+    if (!isInitialized) {
+      console.log('⏳ Waiting for bot initialization...');
+      await ensureInitialized();
+    }
     
     if (!sessionId) {
       sessionId = conversationContext.generateSessionId();
@@ -292,8 +321,17 @@ module.exports = {
 
     try {
       console.log('🔍 Processing query with context...');
+      console.log(`   Bot initialized: ${isInitialized}`);
+      console.log(`   FAQ count: ${qp.faqDatabase ? qp.faqDatabase.faqs.length : 0}`);
       
       const result = await qp.processQuery(message);
+      
+      console.log(`   Result from processQuery:`, {
+        source: result.source,
+        confidence: result.confidence,
+        hasResponse: !!result.response,
+        responseLength: result.response?.length || 0
+      });
       
       const session = conversationContext.updateSession(sessionId, message, result.response, result);
       
@@ -309,8 +347,11 @@ module.exports = {
       
       console.log('✅ Query processed with context:');
       console.log(`   Source: ${result.source}`);
+      console.log(`   Category: ${result.category || 'N/A'}`);
+      console.log(`   Confidence: ${result.confidence}`);
       console.log(`   Session messages: ${result.sessionStats.messageCount}`);
       console.log(`   Topics discussed: ${result.sessionStats.topicsDiscussed.join(', ')}`);
+      console.log(`   Response preview: ${result.response.substring(0, 100)}...`);
       
       // Artificial delay for FAQ responses
       if (result.source === "faq") {
@@ -322,6 +363,7 @@ module.exports = {
       
     } catch (error) {
       console.error('❌ Error in bot handler:', error);
+      console.error('Stack:', error.stack);
       return {
         response: "I encountered an error processing your request. Please try again.",
         source: "error",
@@ -330,5 +372,15 @@ module.exports = {
         error: error.message
       };
     }
+  },
+  
+  // Add a health check function
+  getStatus() {
+    return {
+      initialized: isInitialized,
+      faqCount: qp.faqDatabase ? qp.faqDatabase.faqs.length : 0,
+      semanticModelLoaded: qp.embedder !== null,
+      aiReady: qp.aiClient && qp.aiClient.knowledgeBase !== null
+    };
   }
 };
