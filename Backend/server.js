@@ -1257,45 +1257,56 @@ async function startServer() {
     }
   }
 
-  // -------------------- AI CHATBOT --------------------
-  const { processQuery } = require('./ai/queryProcessor');
+ // -------------------- AI CHATBOT (OPTIONAL) --------------------
+let aiAvailable = false;
+let processQuery = null;
 
-  app.post('/api/chat', async (req, res) => {
-    try {
-      console.log('🤖 AI chat request received');
-      const { message } = req.body;
-      
-      if (!message || !message.trim()) {
-        return res.status(400).json({ error: 'Message is required' });
-      }
+try {
+  console.log('🤖 Attempting to load AI chatbot...');
+  const aiModule = require('./ai/queryProcessor');
+  processQuery = aiModule.processQuery;
+  aiAvailable = true;
+  console.log('✅ AI chatbot module loaded successfully');
+} catch (error) {
+  console.error('⚠️ AI chatbot not available:', error.message);
+  console.log('Server will continue without AI features');
+}
 
-      console.log('User message:', message);
-      console.log('Token exists:', !!process.env.token);
-      
-      const response = await processQuery(message);
-      console.log('AI response generated successfully');
-      
-      return res.json({ response });
-    } catch (error) {
-      console.error('❌ AI chat error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to process chat request',
-        message: error.message 
+app.post('/api/chat', async (req, res) => {
+  try {
+    console.log('🤖 AI chat request received');
+    const { message } = req.body;
+    
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Check if AI is available
+    if (!aiAvailable || !processQuery) {
+      console.log('⚠️ AI not available, returning fallback message');
+      return res.status(503).json({ 
+        error: 'AI service temporarily unavailable',
+        response: 'The AI assistant is currently unavailable. Please try again later or contact support for help with JobSeekr features.',
+        message: 'AI service not initialized' 
       });
     }
-  });
 
-  const HOST = process.env.HOST || '0.0.0.0';
-  const PORT = process.env.PORT || 3000;
-  // AFTER all API routes, BEFORE app.listen()
-  if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    app.use(express.static(path.join(__dirname, '../Frontend/dist')));
+    console.log('User message:', message);
+    console.log('Token exists:', !!process.env.token);
     
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../Frontend/dist/index.html'));
+    const response = await processQuery(message);
+    console.log('AI response generated successfully');
+    
+    return res.json({ response });
+  } catch (error) {
+    console.error('❌ AI chat error:', error);
+    return res.status(500).json({ 
+      error: 'Failed to process chat request',
+      response: 'I encountered an error. Please try rephrasing your question or contact support.',
+      message: error.message 
     });
   }
+});
 
   
 
