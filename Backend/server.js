@@ -1269,6 +1269,34 @@ async function startServer() {
     });
   }
 
+    // -------------------- AI CHATBOT --------------------
+  const { processQuery } = require('./ai/queryProcessing');
+
+  app.post('/api/chat', async (req, res) => {
+    try {
+      console.log('🤖 AI chat request received');
+      const { message } = req.body;
+      
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      console.log('User message:', message);
+      console.log('Token exists:', !!process.env.token);
+      
+      const response = await processQuery(message);
+      console.log('AI response generated successfully');
+      
+      return res.json({ response });
+    } catch (error) {
+      console.error('❌ AI chat error:', error);
+      return res.status(500).json({ 
+        error: 'Failed to process chat request',
+        message: error.message 
+      });
+    }
+  });
+
   const server = app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
     console.log(`NODE_ENV=${process.env.NODE_ENV || 'development'}`);
