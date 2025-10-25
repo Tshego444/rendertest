@@ -1257,19 +1257,7 @@ async function startServer() {
     }
   }
 
-  const HOST = process.env.HOST || '0.0.0.0';
-  const PORT = process.env.PORT || 3000;
-  // AFTER all API routes, BEFORE app.listen()
-  if (process.env.NODE_ENV === 'production') {
-    const path = require('path');
-    app.use(express.static(path.join(__dirname, '../Frontend/dist')));
-    
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../Frontend/dist/index.html'));
-    });
-  }
-
-    // -------------------- AI CHATBOT --------------------
+  // -------------------- AI CHATBOT --------------------
   const { processQuery } = require('./ai/queryProcessing');
 
   app.post('/api/chat', async (req, res) => {
@@ -1296,6 +1284,20 @@ async function startServer() {
       });
     }
   });
+
+  const HOST = process.env.HOST || '0.0.0.0';
+  const PORT = process.env.PORT || 3000;
+  // AFTER all API routes, BEFORE app.listen()
+  if (process.env.NODE_ENV === 'production') {
+    const path = require('path');
+    app.use(express.static(path.join(__dirname, '../Frontend/dist')));
+    
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, '../Frontend/dist/index.html'));
+    });
+  }
+
+  
 
   const server = app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
