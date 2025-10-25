@@ -1236,7 +1236,7 @@ app.delete('/users/:id', verifyToken, ensureRole('admin'), async (req, res) => {
 
 
 // Default route
-app.get('/', (req, res) => res.send('Server is running! Try /jobs'));
+// app.get('/', (req, res) => res.send('Server is running! Try /jobs'));
 
 // -------------------- DB connect + single-start server --------------------
 async function startServer() {
