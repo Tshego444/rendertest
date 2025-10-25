@@ -1257,24 +1257,283 @@ async function startServer() {
     }
   }
 
-// -------------------- AI CHATBOT (OPTIONAL) -------------------- 
+// -------------------- AI CHATBOT WITH CONTEXT MEMORY -------------------- 
 let aiAvailable = false;
 let queryProcessor = null;
+let conversationContext = null;
+
+// CONTEXT MEMORY CLASS (from bot.js)
+class ConversationContext {
+  constructor() {
+    this.sessions = new Map();
+    this.cleanup();
+  }
+
+  generateSessionId() {
+    return require('crypto').randomBytes(16).toString('hex');
+  }
+
+  getSession(sessionId) {
+    if (!this.sessions.has(sessionId)) {
+      this.sessions.set(sessionId, {
+        id: sessionId,
+        startTime: Date.now(),
+        messageCount: 0,
+        topics: new Set(),
+        userPreferences: {},
+        lastActivity: Date.now(),
+        recentQueries: [],
+        problematicQueries: [],
+        userPatterns: {
+          commonWords: new Map(),
+          preferredTopics: new Map()
+        }
+      });
+    }
+    
+    const session = this.sessions.get(sessionId);
+    session.lastActivity = Date.now();
+    return session;
+  }
+
+  updateSession(sessionId, userQuery, botResponse, metadata) {
+    const session = this.getSession(sessionId);
+    session.messageCount++;
+    
+    session.recentQueries.push({
+      query: userQuery,
+      intent: metadata.intent,
+      confidence: metadata.confidence,
+      timestamp: Date.now()
+    });
+    
+    if (session.recentQueries.length > 5) {
+      session.recentQueries.shift();
+    }
+    
+    if (metadata.intent) {
+      session.topics.add(metadata.intent);
+      session.userPreferences[metadata.intent] = (session.userPreferences[metadata.intent] || 0) + 1;
+    }
+    
+    const words = userQuery.toLowerCase().split(' ').filter(word => word.length > 3);
+    words.forEach(word => {
+      session.userPatterns.commonWords.set(word, 
+        (session.userPatterns.commonWords.get(word) || 0) + 1
+      );
+    });
+    
+    if (metadata.confidence < 0.6) {
+      session.problematicQueries.push({
+        query: userQuery,
+        confidence: metadata.confidence,
+        timestamp: Date.now()
+      });
+      
+      if (session.problematicQueries.length > 3) {
+        session.problematicQueries.shift();
+      }
+    }
+    
+    return session;
+  }
+
+  isNonsensicalQuery(query) {
+    const cleanQuery = query.toLowerCase().trim();
+    const hasRepeatingChars = /(.)\1{3,}/.test(cleanQuery);
+    const hasRandomChars = /[qwerty]{5,}|[asdfgh]{5,}|[zxcvbn]{5,}/.test(cleanQuery);
+    const wordCount = cleanQuery.split(' ').filter(word => word.length > 1).length;
+    const avgWordLength = cleanQuery.replace(/\s/g, '').length / Math.max(wordCount, 1);
+    
+    return hasRepeatingChars || hasRandomChars || avgWordLength > 8 || wordCount < 2;
+  }
+
+  getPersonalizedGreeting(session, userQuery) {
+    const query = userQuery.toLowerCase();
+    const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening'];
+    const isGreeting = greetings.some(greeting => 
+      query.includes(greeting) || query === greeting
+    );
+    
+    if (!isGreeting) return null;
+    
+    if (session.messageCount === 1) {
+      const timeGreeting = this.getTimeBasedGreeting();
+      return `${timeGreeting} Welcome to JobSeekr! I'm here to help you with job applications, CV uploads, and account management. What can I assist you with today?`;
+    } else if (session.messageCount < 5) {
+      return "Hello again! How can I help you with JobSeekr today?";
+    } else {
+      const topTopic = this.getTopPreference(session.userPreferences);
+      if (topTopic) {
+        const topicMessages = {
+          'apply_job': "Welcome back! Ready for more job application help?",
+          'upload_cv': "Hi there! Need more assistance with your CV or profile?",
+          'account_management': "Hello! More account questions today?",
+          'reset_password': "Hi again! Having more login or password issues?",
+          'delete_account': "Welcome back! How can I help you today?"
+        };
+        return topicMessages[topTopic] || "Welcome back! How can I assist you today?";
+      }
+      return "Welcome back! What can I help you with today?";
+    }
+  }
+
+  getTimeBasedGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning!";
+    if (hour < 17) return "Good afternoon!";
+    return "Good evening!";
+  }
+
+  getContextualResponse(sessionId, baseResponse, userQuery, metadata) {
+    const session = this.getSession(sessionId);
+    
+    const personalizedGreeting = this.getPersonalizedGreeting(session, userQuery);
+    if (personalizedGreeting) {
+      return personalizedGreeting;
+    }
+    
+    let response = baseResponse;
+    
+    if (this.isNonsensicalQuery(userQuery)) {
+      return "I'm sorry, but your question isn't clear to me. Could you please rephrase it or try asking about specific JobSeekr features like job applications, CV uploads, or account management?";
+    }
+    
+    const similarPastQuery = session.recentQueries.find(q => 
+      this.calculateSimilarity(q.query.toLowerCase(), userQuery.toLowerCase()) > 0.7
+    );
+    
+    if (similarPastQuery && session.messageCount > 1) {
+      response = "I notice you asked something similar recently. Let me provide more details:\n\n" + response;
+    }
+    
+    if (session.messageCount > 2 && Math.random() < 0.3) {
+      const suggestions = this.getContextualSuggestions(session, metadata.intent);
+      if (suggestions) {
+        response += "\n\n" + suggestions;
+      }
+    }
+    
+    if (session.problematicQueries.length >= 2) {
+      const recentProblems = session.problematicQueries.filter(q => 
+        Date.now() - q.timestamp < 10 * 60 * 1000
+      );
+      
+      if (recentProblems.length >= 2) {
+        response += "\n\nI notice you might be having trouble finding what you need. Feel free to ask more specific questions!";
+      }
+    }
+    
+    if (session.messageCount === 2) {
+      response += "\n\nTip: You can ask me anything about JobSeekr features!";
+    }
+    
+    return response;
+  }
+
+  calculateSimilarity(str1, str2) {
+    const words1 = str1.split(' ');
+    const words2 = str2.split(' ');
+    
+    let commonWords = 0;
+    words1.forEach(word => {
+      if (words2.includes(word) && word.length > 2) {
+        commonWords++;
+      }
+    });
+    
+    return commonWords / Math.max(words1.length, words2.length);
+  }
+
+  getTopPreference(preferences) {
+    let maxCount = 0;
+    let topTopic = null;
+    
+    for (const [topic, count] of Object.entries(preferences)) {
+      if (count > maxCount) {
+        maxCount = count;
+        topTopic = topic;
+      }
+    }
+    
+    return maxCount > 1 ? topTopic : null;
+  }
+
+  getContextualSuggestions(session, currentIntent) {
+    const topTopics = Object.entries(session.userPreferences)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 2)
+      .map(([topic]) => topic);
+    
+    const suggestableTopics = topTopics.filter(topic => topic !== currentIntent);
+    
+    if (suggestableTopics.length === 0) return null;
+    
+    const suggestions = {
+      'apply_job': "💡 Since you're interested in applications, you might also want to know about job matching or interview tips.",
+      'upload_cv': "💡 For CV help, you might find our profile optimization and job search tips useful too.",
+      'account_management': "💡 Need help with other features like job preferences or notification settings?",
+      'reset_password': "💡 While you're here, you might want to check your account security settings too.",
+      'job_matching': "💡 Want to know more about improving your job matches or application strategies?"
+    };
+    
+    return suggestions[suggestableTopics[0]];
+  }
+
+  cleanup() {
+    setInterval(() => {
+      const now = Date.now();
+      const twoHours = 2 * 60 * 60 * 1000;
+      let cleaned = 0;
+      
+      for (const [sessionId, session] of this.sessions.entries()) {
+        if (now - session.lastActivity > twoHours) {
+          this.sessions.delete(sessionId);
+          cleaned++;
+        }
+      }
+      
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned up ${cleaned} inactive sessions`);
+      }
+    }, 30 * 60 * 1000); 
+  }
+
+  getSessionStats(sessionId) {
+    const session = this.getSession(sessionId);
+    return {
+      messageCount: session.messageCount,
+      topicsDiscussed: Array.from(session.topics),
+      sessionDuration: Date.now() - session.startTime,
+      hasProblematicQueries: session.problematicQueries.length > 0,
+      topWords: Array.from(session.userPatterns.commonWords.entries())
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([word, count]) => ({ word, count }))
+    };
+  }
+}
 
 try {
   console.log('🤖 Attempting to load AI chatbot...');
-  const { QueryProcessor } = require('./ai/queryProcessor'); // ✅ Get the class
-  queryProcessor = new QueryProcessor(); // ✅ Create instance
+  console.log('📁 AI module path:', path.join(__dirname, 'ai/queryProcessor'));
+  
+  const { QueryProcessor } = require('./ai/queryProcessor');
+  queryProcessor = new QueryProcessor();
+  conversationContext = new ConversationContext();
+  
+  console.log('🧠 Context Memory initialized');
   
   // Initialize immediately on server start
   queryProcessor.initialize()
     .then(() => {
       aiAvailable = true;
       console.log('✅ AI chatbot initialized successfully');
-      console.log('Stats:', queryProcessor.getStats());
+      console.log('📊 Stats:', queryProcessor.getStats());
     })
     .catch(error => {
       console.error('❌ AI initialization failed:', error);
+      console.error('Stack:', error.stack);
       aiAvailable = false;
     });
   
@@ -1284,10 +1543,12 @@ try {
   console.log('Server will continue without AI features');
 }
 
+// ENHANCED CHAT ENDPOINT WITH CONTEXT
 app.post('/api/chat', async (req, res) => {
   try {
-    console.log('🤖 AI chat request received');
-    const { message } = req.body;
+    console.log('\n🔄 AI chat request received');
+    
+    let { message, sessionId } = req.body;
     
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
@@ -1303,16 +1564,46 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    console.log('User message:', message);
+    // Generate session ID if not provided
+    if (!sessionId) {
+      sessionId = conversationContext.generateSessionId();
+      console.log('🆕 New session created:', sessionId);
+    }
+
+    console.log('📝 User message:', message);
+    console.log('🔑 Session ID:', sessionId.substring(0, 8) + '...');
     
-    // ✅ CORRECT: Call the method on the instance
+    // Process query
+    console.log('🔍 Processing query with context...');
     const result = await queryProcessor.processQuery(message);
     
-    console.log('AI response generated successfully');
-    console.log('Source:', result.source);
-    console.log('Category:', result.category);
+    // Update conversation context
+    const session = conversationContext.updateSession(sessionId, message, result.response, result);
     
-    // Return the full result object (frontend can use source, confidence, suggestions, etc.)
+    // Get contextual response
+    result.response = conversationContext.getContextualResponse(
+      sessionId, 
+      result.response, 
+      message, 
+      result
+    );
+    
+    // Add session information
+    result.sessionId = sessionId;
+    result.sessionStats = conversationContext.getSessionStats(sessionId);
+    
+    console.log('✅ Query processed successfully');
+    console.log(`   Source: ${result.source}`);
+    console.log(`   Category: ${result.category}`);
+    console.log(`   Session messages: ${result.sessionStats.messageCount}`);
+    console.log(`   Response preview: ${result.response.substring(0, 80)}...`);
+    
+    // Simulate thinking delay for FAQ responses
+    if (result.source === "faq") {
+      console.log("⏳ Simulating 2.5s delay for FAQ response...");
+      await new Promise(resolve => setTimeout(resolve, 2500));
+    }
+    
     return res.json({
       response: result.response,
       source: result.source,
@@ -1320,16 +1611,33 @@ app.post('/api/chat', async (req, res) => {
       categoryName: result.categoryName,
       confidence: result.confidence,
       suggestions: result.suggestions || [],
-      matchedQuestion: result.matchedQuestion
+      matchedQuestion: result.matchedQuestion,
+      sessionId: result.sessionId,
+      sessionStats: result.sessionStats
     });
     
   } catch (error) {
     console.error('❌ AI chat error:', error);
+    console.error('Stack:', error.stack);
     return res.status(500).json({ 
       error: 'Failed to process chat request',
       response: 'I encountered an error. Please try rephrasing your question.',
       message: error.message 
     });
+  }
+});
+
+// SESSION INFO ENDPOINT
+app.get('/api/session/:sessionId', (req, res) => {
+  try {
+    if (!conversationContext) {
+      return res.status(503).json({ error: 'Context not initialized' });
+    }
+    const { sessionId } = req.params;
+    const stats = conversationContext.getSessionStats(sessionId);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
