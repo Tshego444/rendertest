@@ -1,0 +1,182 @@
+[
+  {
+    "jobID": "j1",
+    "employerID": "u2",
+    "title": "Software Engineer",
+    "company": "Apple",
+    "description": "Develop high-quality software and work with cross-functional teams.",
+    "location": "Sandton, Gauteng",
+    "salary": [18000, 22000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Senior" },
+    "tasks": [
+      "Develop and maintain high-quality code",
+      "Collaborate with cross-functional teams",
+      "Participate in code reviews",
+      "Troubleshoot and debug software issues",
+      "Optimize applications for performance",
+      "Write unit and integration tests"
+    ],
+    "applicants": [
+      { "userID": "u1", "time": "2025-09-18T09:30:00Z", "status": "Submitted" },
+      { "userID": "u3", "time": "2025-09-19T12:45:00Z", "status": "Review" }
+    ]
+  },
+  {
+    "jobID": "j2",
+    "employerID": "u2",
+    "title": "UI/UX Designer",
+    "company": "Apple",
+    "description": "Design intuitive user interfaces for Apple products.",
+    "location": "Cape Town, Western Cape",
+    "salary": [15000, 20000],
+    "jobType": { "workplace": "On-site", "time": "Full-time", "role": "Mid" },
+    "tasks": [
+      "Create wireframes and prototypes",
+      "Design user-friendly layouts",
+      "Conduct usability testing",
+      "Collaborate with product and development teams",
+      "Ensure design consistency",
+      "Update and maintain design system"
+    ],
+    "applicants": [{ "userID": "u6", "time": "2025-09-19T08:15:00Z", "status": "Submitted" }]
+  },
+  {
+    "jobID": "j3",
+    "employerID": "u4",
+    "title": "Data Scientist",
+    "company": "Netflix",
+    "description": "Analyze data to improve Netflix’s content recommendations.",
+    "location": "Cape Town, Western Cape",
+    "salary": [28000, 34000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Senior" },
+    "tasks": [
+      "Develop predictive models",
+      "Analyze large datasets",
+      "Collaborate with engineering teams",
+      "Visualize data insights",
+      "Present findings to leadership",
+      "Maintain data pipelines",
+      "Ensure data quality and integrity"
+    ],
+    "applicants": [{ "userID": "u3", "time": "2025-09-19T11:45:00Z", "status": "Submitted" }]
+  },
+  {
+    "jobID": "j4",
+    "employerID": "u4",
+    "title": "Creative Producer",
+    "company": "Netflix",
+    "description": "Manage creative production of Netflix originals.",
+    "location": "Sandton, Gauteng",
+    "salary": [25000, 30000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Senior" },
+    "tasks": [
+      "Develop production schedules",
+      "Collaborate with writers and directors",
+      "Supervise creative teams",
+      "Ensure projects meet deadlines",
+      "Maintain quality standards",
+      "Manage budgets",
+      "Coordinate with post-production teams"
+    ],
+    "applicants": [{ "userID": "u1", "time": "2025-08-18T09:30:00Z", "status": "Interview" }]
+  },
+  {
+    "jobID": "j5",
+    "employerID": "u5",
+    "title": "Cloud Architect",
+    "company": "Google",
+    "description": "Design scalable cloud systems at Google.",
+    "location": "Pretoria, Gauteng",
+    "salary": [30000, 35000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Senior" },
+    "tasks": [
+      "Design cloud architecture",
+      "Ensure security and compliance",
+      "Optimize cloud cost and performance",
+      "Collaborate with engineers",
+      "Provide technical leadership",
+      "Develop cloud best practices"
+    ],
+    "applicants": [{ "userID": "u10", "time": "2025-09-19T09:05:00Z", "status": "Submitted" }]
+  },
+  {
+    "jobID": "j6",
+    "employerID": "u5",
+    "title": "AI Researcher",
+    "company": "Google",
+    "description": "Research AI models and publish findings.",
+    "location": "Cape Town, Western Cape",
+    "salary": [28000, 33000],
+    "jobType": { "workplace": "Remote", "time": "Part-time", "role": "Mid-level" },
+    "tasks": [
+      "Conduct AI research",
+      "Develop new algorithms",
+      "Experiment with ML models",
+      "Collaborate with cross-disciplinary teams",
+      "Document research findings",
+      "Present papers and publications"
+    ],
+    "applicants": [{ "userID": "u1", "time": "2025-09-19T10:10:00Z", "status": "Review" }]
+  },
+  {
+    "jobID": "j7",
+    "employerID": "u7",
+    "title": "Systems Engineer",
+    "company": "Microsoft",
+    "description": "Manage Microsoft’s IT infrastructure.",
+    "location": "Johannesburg, Gauteng",
+    "salary": [19000, 24000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Mid-level" },
+    "tasks": [
+      "Monitor servers and networks",
+      "Implement system upgrades",
+      "Troubleshoot hardware/software",
+      "Collaborate with IT teams",
+      "Ensure security protocols",
+      "Document system processes",
+      "Support users with technical issues"
+    ],
+    "applicants": [
+      { "userID": "u3", "time": "2025-09-19T12:15:00Z", "status": "Submitted" },
+      { "userID": "u1", "time": "2025-09-02T09:30:00Z", "status": "Declined" }
+    ]
+  },
+  {
+    "jobID": "j8",
+    "employerID": "u7",
+    "title": "Business Analyst",
+    "company": "Microsoft",
+    "description": "Work with Microsoft’s business teams to improve workflows.",
+    "location": "Cape Town, Western Cape",
+    "salary": [21000, 26000],
+    "jobType": { "workplace": "Remote", "time": "Part-time", "role": "Junior" },
+    "tasks": [
+      "Gather requirements from stakeholders",
+      "Analyze business processes",
+      "Create documentation and reports",
+      "Work with developers for solutions",
+      "Track KPIs and metrics",
+      "Identify improvement opportunities"
+    ],
+    "applicants": []
+  },
+  {
+    "jobID": "j9",
+    "employerID": "u9",
+    "title": "Warehouse Manager",
+    "company": "Amazon",
+    "description": "Oversee Amazon warehouse operations.",
+    "location": "Durban, KwaZulu-Natal",
+    "salary": [18000, 23000],
+    "jobType": { "workplace": "Remote", "time": "Full-time", "role": "Mid-level" },
+    "tasks": [
+      "Supervise warehouse staff",
+      "Manage inventory and shipments",
+      "Optimize warehouse operations",
+      "Ensure safety compliance",
+      "Track KPIs and metrics",
+      "Coordinate with logistics teams"
+    ],
+    "applicants": [{ "userID": "u10", "time": "2025-09-19T07:50:00Z", "status": "Submitted" }]
+  }
+]

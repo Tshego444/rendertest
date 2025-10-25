@@ -1,0 +1,6 @@
+{
+  "watch": ["bot.js", "queryProcessor.js", "faqDatabase.js", "faq_and_knowledge.json"],
+  "ext": "js,json",
+  "ignore": ["node_modules/"],
+  "exec": "node bot.js"
+}

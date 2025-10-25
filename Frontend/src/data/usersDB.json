@@ -1,0 +1,93 @@
+[
+  {
+    "userID": "u1",
+    "name": "Job Seeker",
+    "email": "js@gmail.com",
+    "password": "1234",
+    "userType": "seeker",
+    "profile": {
+      "skills": ["JavaScript", "Vue.js", "Node.js"],
+      "experience": "3",
+      "location": "Johannesburg, Gauteng",
+      "cv": "jobseekeercv.pdf"
+    },
+    "applicationsViewed": []
+  },
+  {
+    "userID": "u2",
+    "name": "Employer",
+    "email": "e@gmail.com",
+    "password": "1234",
+    "userType": "employer",
+    "company": {
+      "name": "Apple",
+      "location": "Sandton, Gauteng",
+      "industry": "Technology"
+    }
+  },
+  {
+    "userID": "u3",
+    "name": "Job Seeker 2",
+    "email": "js2@gmail.com",
+    "password": "1234",
+    "userType": "seeker",
+    "profile": {
+      "skills": ["JavaScript", "Vue.js", "Node.js"],
+      "experience": "3",
+      "location": "Johannesburg, Gauteng",
+      "cv": "jobseekeercv.pdf"
+    },
+    "applicationsViewed": []
+  },
+  {
+    "userID": "u4",
+    "name": "Anna Williams",
+    "email": "anna.w@netflix.com",
+    "userType": "employer",
+    "company": {
+      "name": "Netflix",
+      "location": "Cape Town, Western Cape",
+      "industry": "Entertainment"
+    }
+  },
+  {
+    "userID": "u5",
+    "name": "David Brown",
+    "email": "david.brown@google.com",
+    "userType": "employer",
+    "company": {
+      "name": "Google",
+      "location": "Pretoria, Gauteng",
+      "industry": "Technology"
+    }
+  },
+  {
+    "userID": "u7",
+    "name": "Mark Lee",
+    "email": "mark.lee@microsoft.com",
+    "userType": "employer",
+    "company": {
+      "name": "Microsoft",
+      "location": "Johannesburg, Gauteng",
+      "industry": "Software"
+    }
+  },
+  {
+    "userID": "u9",
+    "name": "James Green",
+    "email": "james.green@amazon.com",
+    "userType": "employer",
+    "company": {
+      "name": "Amazon",
+      "location": "Durban, KwaZulu-Natal",
+      "industry": "E-commerce"
+    }
+  },
+  {
+    "userID": "u10",
+    "name": "Admin",
+    "email": "a@gmail.com",
+    "password": "1234",
+    "userType": "admin"
+  }
+]

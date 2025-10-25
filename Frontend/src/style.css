@@ -1,0 +1,18 @@
+@import 'tailwindcss';
+
+:root {
+  --shadow-color: rgba(0, 0, 0, 0.05);
+
+  --lightBlue: #dbe2ef;
+  --mediumBlue: #3f72af;
+  --darkBlue: #112d4e;
+
+  /*--lightBlue: #9db2bf;
+  --mediumBlue: #526d82;
+  --darkBlue: #27374d; */
+}
+
+body {
+  font-family: 'Poppins', sans-serif; 
+  background-color: var(--lightBlue);
+}

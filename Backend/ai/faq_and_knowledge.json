@@ -1,0 +1,158 @@
+[
+    {
+        "question": "How do I apply for a job?",
+        "answer": "Swipe right on a job posting and your application will automatically be sent in as a submission.",
+        "category": "applications",
+        "tags": ["apply", "swipe", "job"]
+    },
+    {
+        "question": "Can I upload multiple CV's?",
+        "answer": "Yes, you can upload and manage multiple CV's in your profile settings.",
+        "category": "profile",
+        "tags": ["cv", "upload", "profile"]
+    },
+    {
+        "question": "How do employers create job listings?",
+        "answer": "Employers can create, edit, and delete job listings from their dashboard.",
+        "category": "employers",
+        "tags": ["employers", "job listings", "dashboard"]
+    },
+    {
+        "question": "Can I withdraw an application?",
+        "answer": "Yes, you can withdraw applications from your 'My Applications' page.",
+        "category": "applications",
+        "tags": ["withdraw", "applications", "cancel"]
+    },
+    {
+        "question": "Is my data safe?",
+        "answer": "Yes, JobSeekr uses secure authentication, AES-256 password encryption, and HTTPS to keep your data safe.",
+        "category": "security",
+        "tags": ["security", "data", "privacy"]
+    },
+    {
+        "question": "Who is the app for?",
+        "answer": "The app is for both job seekers looking for work and employers who want to hire. It can also be used by freelancers.",
+        "category": "general",
+        "tags": ["about", "users", "purpose"]
+    },
+    {
+        "question": "What happens when I swipe left?",
+        "answer": "If you swipe left, that job will be declined and will not appear again in your feed.",
+        "category": "jobs",
+        "tags": ["swipe", "decline", "jobs"]
+    },
+    {
+        "question": "What happens when I swipe right?",
+        "answer": "If you swipe right, the system sends your profile and CV to the employer, and the job listing is removed from your feed.",
+        "category": "applications",
+        "tags": ["swipe", "apply", "employer"]
+    },
+    {
+        "question": "Can employers message me directly?",
+        "answer": "Yes, but only after you have applied. Employers can then start a chat with you.",
+        "category": "messaging",
+        "tags": ["messaging", "employers", "chat"]
+    },
+    {
+        "question": "Can job seekers message employers first?",
+        "answer": "No, only employers can start a conversation. Job seekers can reply once the employer starts the chat.",
+        "category": "messaging",
+        "tags": ["messaging", "chat", "restrictions"]
+    },
+    {
+        "question": "How does the app decide which jobs to show me?",
+        "answer": "The app matches your profile with job requirements set by employers. You'll only see jobs you qualify for, with optional filters for salary, location, and more.",
+        "category": "matching",
+        "tags": ["matching", "algorithm", "jobs"]
+    },
+    {
+        "question": "How do employers see my application?",
+        "answer": "Employers can view your name, age, qualifications, and CV, depending on what they requested when creating the job listing.",
+        "category": "applications",
+        "tags": ["employers", "application", "profile"]
+    },
+    {
+        "question": "Does the app guarantee I will get a job?",
+        "answer": "No, the app cannot guarantee a hire. It helps streamline applications and maximize your chances, but the final decision depends on interviews and employer preferences.",
+        "category": "general",
+        "tags": ["expectations", "hiring", "guarantee"]
+    },
+    {
+        "question": "Can I build my CV in the app?",
+        "answer": "No, JobSeekr does not include a CV builder. You can use tools like Canva or other online CV creating apps to create one and then upload it to JobSeekr.",
+        "category": "profile",
+        "tags": ["cv", "builder", "external"]
+    },
+    {
+        "question": "Can I attend interviews on the app?",
+        "answer": "No, JobSeekr does not include a built-in video call service. Employers may share meeting links from Zoom, Teams, or Google Meet through the messaging system.",
+        "category": "interviews",
+        "tags": ["interviews", "video", "external"]
+    },
+    {
+        "question": "What happens if there are no more jobs?",
+        "answer": "A message will appear in your feed letting you know that no more jobs are currently available.",
+        "category": "jobs",
+        "tags": ["jobs", "feed", "availability"]
+    },
+    {
+        "question": "Can employers update job listings?",
+        "answer": "Yes, employers can edit, update, or remove job listings at any time from their dashboard.",
+        "category": "employers",
+        "tags": ["employers", "edit", "job listings"]
+    },
+    {
+        "question": "How do I sign up?",
+        "answer": "Download the app, tap 'Sign Up', and fill in your name, email, and password. Then create your profile by uploading a CV and entering your skills.",
+        "category": "account",
+        "tags": ["signup", "registration", "getting started"]
+    },
+    {
+        "question": "How do I log in?",
+        "answer": "Tap 'Login' on the home screen, then enter your email and password.",
+        "category": "account",
+        "tags": ["login", "access", "authentication"]
+    },
+    {
+        "question": "How do I edit my profile?",
+        "answer": "Go to the 'Profile' tab, tap 'Edit Profile', and update your details such as skills, CV, and personal information.",
+        "category": "profile",
+        "tags": ["profile", "edit", "update"]
+    },
+    {
+        "question": "How do I reject a job?",
+        "answer": "Swipe left on a job card to reject it. It won't appear in your feed again.",
+        "category": "jobs",
+        "tags": ["reject", "swipe", "jobs"]
+    },
+    {
+        "question": "How do I see the jobs I applied for?",
+        "answer": "Go to 'My Applications' in the menu. You'll see all your pending and past applications.",
+        "category": "applications",
+        "tags": ["applications", "history", "tracking"]
+    },
+    {
+        "question": "How do I chat with an employer?",
+        "answer": "Once you've applied for a job, the employer can start a chat with you. You can reply through the 'Messages' tab.",
+        "category": "messaging",
+        "tags": ["chat", "messaging", "employers"]
+    },
+    {
+        "question": "How do employers post a job?",
+        "answer": "Employers log in, go to the 'Dashboard', click 'Create Job', and fill in the job details such as title, requirements, and salary.",
+        "category": "employers",
+        "tags": ["employers", "post job", "create"]
+    },
+    {
+        "question": "How do employers manage job listings?",
+        "answer": "Employers can edit or delete their job postings anytime in the 'My Listings' section of the dashboard.",
+        "category": "employers",
+        "tags": ["employers", "manage", "job listings"]
+    },
+    {
+        "question": "Do I need a CV to apply?",
+        "answer": "No, you cannot send applications to future potential recruiters without a CV. If you need help creating a CV there are online tools you can use to help.",
+        "category": "profile",
+        "tags": ["cv", "requirements", "applications"]
+    }
+]
