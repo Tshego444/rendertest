@@ -1258,7 +1258,7 @@ async function startServer() {
   }
 
   // -------------------- AI CHATBOT --------------------
-  const { processQuery } = require('./ai/queryProcessing');
+  const { processQuery } = require('./ai/queryProcessor');
 
   app.post('/api/chat', async (req, res) => {
     try {
