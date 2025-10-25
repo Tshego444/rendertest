@@ -307,15 +307,20 @@ ensureInitialized().catch(err => {
 });
 
 // Export the instances and handler function
+// backend/ai/bot.js - FIXED EXPORTS SECTION
+// Replace your existing module.exports with this:
+
 module.exports = {
   queryProcessor: qp,
   conversationContext: conversationContext,
   
-  // Main chat handler function that server.js can call
+  // Export the initialization function so server can wait for it
+  ensureInitialized,
+  
+  // Main chat handler function
   async handleChat(message, sessionId = null) {
     const startTime = Date.now();
     console.log('\n🔄 Bot processing message:', message.substring(0, 50));
-    console.log('   isInitialized at start:', isInitialized);
     
     // CRITICAL: Ensure bot is initialized before processing
     if (!isInitialized) {
@@ -330,7 +335,8 @@ module.exports = {
           source: "error",
           confidence: 0,
           sessionId: sessionId || conversationContext.generateSessionId(),
-          error: "Bot initialization failed"
+          error: "Bot initialization failed",
+          details: error.message
         };
       }
     }
@@ -351,22 +357,21 @@ module.exports = {
 
     try {
       console.log('🔍 Processing query with context...');
-      console.log('   Bot initialized:', isInitialized);
-      console.log('   FAQ count:', qp.faqDatabase ? qp.faqDatabase.faqs.length : 0);
-      console.log('   Embeddings count:', qp.faqEmbeddings ? qp.faqEmbeddings.length : 0);
-      console.log('   Semantic model loaded:', !!qp.embedder);
       
       const result = await qp.processQuery(message);
       
       console.log('   processQuery returned:', {
         source: result.source,
         confidence: result.confidence,
-        responseLength: result.response?.length || 0,
-        intent: result.intent,
-        category: result.category
+        responseLength: result.response?.length || 0
       });
       
-      const session = conversationContext.updateSession(sessionId, message, result.response, result);
+      const session = conversationContext.updateSession(
+        sessionId, 
+        message, 
+        result.response, 
+        result
+      );
       
       result.response = conversationContext.getContextualResponse(
         sessionId, 
@@ -379,19 +384,11 @@ module.exports = {
       result.sessionStats = conversationContext.getSessionStats(sessionId);
       
       const processingTime = Date.now() - startTime;
+      console.log(`✅ Query processed in ${processingTime}ms`);
       
-      console.log('✅ Query processed successfully:');
-      console.log('   Source:', result.source);
-      console.log('   Category:', result.category || 'N/A');
-      console.log('   Confidence:', result.confidence);
-      console.log('   Processing time:', processingTime, 'ms');
-      console.log('   Session messages:', result.sessionStats.messageCount);
-      console.log('   Response preview:', result.response.substring(0, 100) + '...');
-      
-      // Artificial delay for FAQ responses (make it feel more natural)
+      // Natural delay for FAQ responses
       if (result.source === "faq" && processingTime < 2500) {
         const delay = 2500 - processingTime;
-        console.log(`⏳ Adding ${delay}ms delay for FAQ response naturalness...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
@@ -410,7 +407,7 @@ module.exports = {
     }
   },
   
-  // Add a health check function
+  // Status check function
   getStatus() {
     return {
       initialized: isInitialized,

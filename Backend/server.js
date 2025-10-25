@@ -1243,6 +1243,9 @@ async function startServer() {
   console.log('Starting server: attempting MongoDB connection...');
   console.log('MONGO_URI present?', !!MONGO_URI ? 'YES (hidden)' : 'NO');
 
+  console.log('\n🤖 Initializing AI Bot...');
+  const botReady = await initializeBot();
+
   try {
     await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
     console.log('Connected to MongoDB');
@@ -1257,28 +1260,43 @@ async function startServer() {
     }
   }
 
-// -------------------- AI CHATBOT (INTEGRATED WITH bot.js) -------------------- 
-let botModule = null;
+// ==================== AI CHATBOT SECTION ONLY ====================
+// Replace ONLY the AI section in your server.js (around line 650-750)
 
-try {
-  console.log('🤖 Loading bot.js module...');
-  console.log('📁 Bot module path:', path.join(__dirname, 'ai/bot.js'));
-  
-  botModule = require('./ai/bot.js');
-  console.log('✅ Bot module loaded successfully');
-  
-  // Log status after a delay (optional, for debugging only)
-  setTimeout(() => {
-    if (botModule && botModule.getStatus) {
+let botModule = null;
+let botInitialized = false;
+let botInitError = null;
+
+// Initialize bot function
+async function initializeBot() {
+  try {
+    console.log('🤖 Loading bot.js module...');
+    console.log('📁 Bot module path:', path.join(__dirname, 'ai/bot.js'));
+    
+    botModule = require('./ai/bot.js');
+    console.log('✅ Bot module loaded successfully');
+    
+    // CRITICAL FIX: Wait for bot to actually initialize
+    console.log('⏳ Waiting for bot initialization to complete...');
+    await botModule.ensureInitialized();
+    
+    botInitialized = true;
+    console.log('✅ Bot fully initialized and ready');
+    
+    // Log status
+    if (botModule.getStatus) {
       const status = botModule.getStatus();
       console.log('📊 Bot initialization status:', JSON.stringify(status, null, 2));
     }
-  }, 5000); // Give it 5 seconds instead of 2
-  
-} catch (error) {
-  console.error('⚠️ Bot module failed to load:', error.message);
-  console.error('Full error:', error.stack);
-  console.log('Server will continue without AI features');
+    
+    return true;
+  } catch (error) {
+    botInitError = error;
+    console.error('⚠️ Bot module failed to load:', error.message);
+    console.error('Full error:', error.stack);
+    console.log('Server will continue without AI features');
+    return false;
+  }
 }
 
 // Simple chat endpoint that delegates to bot.js
@@ -1298,6 +1316,16 @@ app.post('/api/chat', async (req, res) => {
         error: 'AI service temporarily unavailable',
         response: 'The AI assistant is currently unavailable. Please try again later or contact support.',
         message: 'Bot module not initialized'
+      });
+    }
+
+    // Check if bot finished initializing
+    if (!botInitialized) {
+      console.log('⚠️ Bot not fully initialized yet');
+      return res.status(503).json({ 
+        error: 'AI service starting up',
+        response: 'The AI assistant is still starting up. Please try again in a moment.',
+        message: 'Bot initialization in progress'
       });
     }
 
@@ -1339,13 +1367,17 @@ app.get('/api/bot/status', (req, res) => {
     if (!botModule) {
       return res.json({ 
         available: false, 
+        initialized: false,
         message: 'Bot module not loaded' 
       });
     }
     
     const status = botModule.getStatus ? botModule.getStatus() : { available: true };
     return res.json({ 
-      available: true, 
+      available: botInitialized && !botInitError,
+      initialized: botInitialized,
+      hasError: !!botInitError,
+      errorMessage: botInitError?.message || null,
       ...status 
     });
   } catch (error) {
@@ -1356,6 +1388,17 @@ app.get('/api/bot/status', (req, res) => {
   }
 });
 
+// Health check for debugging
+app.get('/api/bot/health', (req, res) => {
+  res.json({
+    botModule: !!botModule,
+    botInitialized,
+    botInitError: botInitError?.message || null,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ==================== END AI CHATBOT SECTION ====================
   const HOST = process.env.HOST || '0.0.0.0';
   const PORT = process.env.PORT || 3000;
   // AFTER all API routes, BEFORE app.listen()
