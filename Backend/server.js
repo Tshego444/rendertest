@@ -1257,18 +1257,30 @@ async function startServer() {
     }
   }
 
-  // -------------------- AI CHATBOT (OPTIONAL) --------------------
+// -------------------- AI CHATBOT (OPTIONAL) -------------------- 
 let aiAvailable = false;
-let processQuery = null;
+let queryProcessor = null;
 
 try {
   console.log('🤖 Attempting to load AI chatbot...');
-  const aiModule = require('./ai/queryProcessor');
-  processQuery = aiModule.processQuery;
-  aiAvailable = true;
-  console.log('✅ AI chatbot module loaded successfully');
+  const { QueryProcessor } = require('./ai/queryProcessor'); // ✅ Get the class
+  queryProcessor = new QueryProcessor(); // ✅ Create instance
+  
+  // Initialize immediately on server start
+  queryProcessor.initialize()
+    .then(() => {
+      aiAvailable = true;
+      console.log('✅ AI chatbot initialized successfully');
+      console.log('Stats:', queryProcessor.getStats());
+    })
+    .catch(error => {
+      console.error('❌ AI initialization failed:', error);
+      aiAvailable = false;
+    });
+  
 } catch (error) {
   console.error('⚠️ AI chatbot not available:', error.message);
+  console.error('Full error:', error.stack);
   console.log('Server will continue without AI features');
 }
 
@@ -1282,22 +1294,35 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Check if AI is available
-    if (!aiAvailable || !processQuery) {
+    if (!aiAvailable || !queryProcessor) {
       console.log('⚠️ AI not available, returning fallback message');
       return res.status(503).json({ 
         error: 'AI service temporarily unavailable',
         response: 'The AI assistant is currently unavailable. Please try again later or contact support.',
-        message: 'AI service not initialized' 
+        message: 'AI service not initialized'
       });
     }
 
     console.log('User message:', message);
-    console.log('Token exists:', !!process.env.token);
     
-    const response = await processQuery(message);
+    // ✅ CORRECT: Call the method on the instance
+    const result = await queryProcessor.processQuery(message);
+    
     console.log('AI response generated successfully');
+    console.log('Source:', result.source);
+    console.log('Category:', result.category);
     
-    return res.json({ response });
+    // Return the full result object (frontend can use source, confidence, suggestions, etc.)
+    return res.json({
+      response: result.response,
+      source: result.source,
+      category: result.category,
+      categoryName: result.categoryName,
+      confidence: result.confidence,
+      suggestions: result.suggestions || [],
+      matchedQuestion: result.matchedQuestion
+    });
+    
   } catch (error) {
     console.error('❌ AI chat error:', error);
     return res.status(500).json({ 

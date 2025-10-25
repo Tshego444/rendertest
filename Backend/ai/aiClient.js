@@ -7,6 +7,19 @@ const token = process.env["token"];
 const endpoint = "https://models.github.ai/inference";
 const model = "openai/GPT-4.1-nano";
 
+// ✅ ADD THESE DEBUG LINES
+console.log('🔑 Checking AI token configuration...');
+console.log('Token exists:', !!token);
+console.log('Token length:', token ? token.length : 0);
+console.log('Token preview:', token ? `${token.substring(0, 10)}...` : 'MISSING');
+console.log('All env vars:', Object.keys(process.env).filter(k => k.toLowerCase().includes('token')));
+
+// ✅ ADD VALIDATION
+if (!token || token.trim() === '') {
+  console.error('❌ CRITICAL: GitHub AI token is missing or empty!');
+  console.error('Set the "token" environment variable in Render dashboard');
+}
+
 class JobSeekrAI {
   constructor() {
     this.client = ModelClient(endpoint, new AzureKeyCredential(token));
