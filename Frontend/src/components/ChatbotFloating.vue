@@ -68,7 +68,10 @@ async function sendMessage() {
     </button>
 
     <!-- Chat panel -->
-    <div v-if="open" class="fixed bottom-24 right-6 z-50 w-96 max-h-[70vh] bg-white rounded-xl shadow-xl flex flex-col overflow-hidden">
+    <div
+  v-if="open"
+  class="fixed bottom-20 right-3 sm:bottom-24 sm:right-6 z-50 w-[92vw] sm:w-96 max-h-[75vh] bg-white rounded-xl shadow-xl flex flex-col overflow-hidden">
+
       <!-- Header -->
       <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div class="flex items-center gap-3">
