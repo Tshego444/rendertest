@@ -1398,7 +1398,7 @@ async function startServer() {
 
 
   const HOST = process.env.HOST || '0.0.0.0';
-  const PORT = process.env.PORT ;
+  const PORT = process.env.PORT || 3000;
   // AFTER all API routes, BEFORE app.listen()
   if (process.env.NODE_ENV === 'production') {
     const path = require('path');

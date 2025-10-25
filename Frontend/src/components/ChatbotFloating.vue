@@ -41,7 +41,7 @@ async function sendMessage() {
 
   try {
     const payload = { message: userInput }
-    const res = await axios.post('http://localhost:3000/chat', payload) // ✅ correct endpoint
+    const res = await axios.post('https://jobseekr-acmk.onrender.com/chat', payload) // ✅ correct endpoint
     const reply = res.data?.response || "Sorry, I couldn't produce an answer right now."
     msgs.value.push({ role: 'assistant', content: reply, time: new Date().toISOString() })
     nextTick(() => { if (messagesPane.value) messagesPane.value.scrollTop = messagesPane.value.scrollHeight })
