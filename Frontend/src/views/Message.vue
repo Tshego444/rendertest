@@ -1,3 +1,4 @@
+<!-- Frontend/src/views/Message.vue -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -34,9 +35,10 @@ const newMessage = ref('')
 const messagesContainerRef = ref(null)
 
 let pollTimer = null
+// Prevent race conditions when switching conversations quickly
+let lastOpenToken = null
 
 /* ───────── sidebar / mobile ───────── */
-// sidebar open state; on desktop it remains open
 const sidebarOpen = ref(true)
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
 
@@ -64,7 +66,9 @@ const safeMessages = computed(() => {
 const filteredConvs = computed(() => {
   const q = (search.value || '').toLowerCase()
   return convs.value.filter(x => {
-    return !q || (x.displayName || '').toLowerCase().includes(q) || (x.displaySub || '').toLowerCase().includes(q)
+    return !q ||
+      (x.displayName || '').toLowerCase().includes(q) ||
+      (x.displaySub   || '').toLowerCase().includes(q)
   })
 })
 
@@ -122,9 +126,6 @@ async function loadConversations ({ silent = false } = {}) {
     const meMongo = me.value?.id || me.value?._id || null
     const meLegacy = me.value?.userID || null
 
-    // Prepare a quick lookup by id for in-place updates (so the list doesn’t flash)
-    const indexById = new Map(convs.value.map(c => [String(c.id), c]))
-
     await Promise.all(list.map(async (c) => {
       const otherId = getOtherIdFromConv(c, meMongo, meLegacy)
       if (otherId) {
@@ -157,7 +158,6 @@ function reconcileList (existing, incoming) {
     const id = String(item.id)
     const target = byId.get(id)
     if (target) {
-      // update only changed fields
       target.displayName   = item.displayName
       target.displaySub    = item.displaySub
       target.lastMessage   = item.lastMessage
@@ -184,39 +184,51 @@ function reconcileList (existing, incoming) {
 /* ───────── open / refresh active conversation ───────── */
 async function openConversation (convId, { silent = false } = {}) {
   if (!convId) return
+
+  // token for this open action
+  const token = Symbol('open')
+  lastOpenToken = token
+
   activeConvId.value = String(convId)
   router.push({ params: { ...route.params, id: convId } }).catch(() => {})
 
   if (!silent) loadingActive.value = true
-  otherUser.value = otherUser.value || null
+
+  // reset UI state immediately so we don't show stale data
+  otherUser.value = null
+  activeConversation.value = { id: activeConvId.value, messages: [] }
 
   try {
     const res = await axios.get(url(`/conversations/${convId}`), { headers: authHeaders() })
     const incoming = res.data || {}
     if (!Array.isArray(incoming.messages)) incoming.messages = []
 
-    // Determine header user once
-    if (!otherUser.value) {
-      const meMongo = me.value?.id || me.value?._id || null
-      const meLegacy = me.value?.userID || null
-      const otherId = getOtherIdFromConv(incoming, meMongo, meLegacy)
-      if (otherId) {
-        const u = await fetchUserForId(otherId)
-        otherUser.value = u || { userID: String(otherId) }
-      }
-    }
+    // if user switched during the request, ignore this response
+    if (lastOpenToken !== token) return
 
-    // First time: set object; later: in-place reconcile (no flashing)
-    if (!activeConversation.value || String(activeConversation.value.id || activeConversation.value._id) !== String(incoming.id || incoming._id)) {
-      activeConversation.value = { ...incoming, messages: [...incoming.messages] }
+    // compute header user fresh for this conversation
+    const meMongo = me.value?.id || me.value?._id || null
+    const meLegacy = me.value?.userID || null
+    const otherId = getOtherIdFromConv(incoming, meMongo, meLegacy)
+    if (otherId) {
+      const u = await fetchUserForId(otherId)
+      if (lastOpenToken !== token) return
+      otherUser.value = u || { userID: String(otherId) }
     } else {
-      withPreservedScroll(() => {
-        reconcileMessages(activeConversation.value.messages, incoming.messages)
-      })
+      otherUser.value = null
     }
 
-    // mark read in background
+    // replace object to avoid mixing messages from previous convo
+    activeConversation.value = { ...incoming, messages: [...incoming.messages] }
+
+    // mark read (fire and forget)
     markRead(convId).catch(() => {})
+
+    // scroll to bottom on open
+    nextTick(() => {
+      const el = messagesContainerRef.value
+      if (el) el.scrollTop = el.scrollHeight
+    })
   } catch (err) {
     if (!silent) {
       console.error('Failed to load conversation', err)
@@ -235,8 +247,16 @@ async function refreshActive ({ silent = true } = {}) {
     const res = await axios.get(url(`/conversations/${activeConvId.value}`), { headers: authHeaders() })
     const incoming = res.data || {}
     if (!Array.isArray(incoming.messages)) incoming.messages = []
+
+    // server must match the currently open conv
+    const incomingId = String(incoming.id || incoming._id || '')
+    if (incomingId && incomingId !== String(activeConvId.value)) return
+
     withPreservedScroll(() => {
-      reconcileMessages(activeConversation.value?.messages || (activeConversation.value = { id: activeConvId.value, messages: [] }).messages, incoming.messages)
+      reconcileMessages(
+        activeConversation.value?.messages || (activeConversation.value = { id: activeConvId.value, messages: [] }).messages,
+        incoming.messages
+      )
     })
   } catch {
     /* ignore during poll */
@@ -246,68 +266,64 @@ async function refreshActive ({ silent = true } = {}) {
 /* Merge messages in place (no duplicates) */
 function reconcileMessages(existing, incoming) {
   // Index current list
-  const idToIdx = new Map();
-  const sigToIdx = new Map();
+  const idToIdx = new Map()
+  const sigToIdx = new Map()
   for (let i = 0; i < existing.length; i++) {
-    const ex = existing[i];
-    const exId = String(ex._id || ex.id || '');
-    if (exId) idToIdx.set(exId, i);
-    sigToIdx.set(softSig(ex), i);
+    const ex = existing[i]
+    const exId = String(ex._id || ex.id || '')
+    if (exId) idToIdx.set(exId, i)
+    sigToIdx.set(softSig(ex), i)
   }
 
   for (const msg of incoming) {
-    const inId = String(msg._id || msg.id || '');
-    const inSig = softSig(msg);
+    const inId = String(msg._id || msg.id || '')
+    const inSig = softSig(msg)
 
     if (inId && idToIdx.has(inId)) {
       // exact id match → update mutable fields
-      const idx = idToIdx.get(inId);
-      const t = existing[idx];
-      t.read = msg.read;
-      t.time = msg.time || msg.at || t.time;
-      t.text = msg.text ?? t.text;
-      continue;
+      const idx = idToIdx.get(inId)
+      const t = existing[idx]
+      t.read = msg.read
+      t.time = msg.time || msg.at || t.time
+      t.text = msg.text ?? t.text
+      continue
     }
 
     if (sigToIdx.has(inSig)) {
       // soft match → replace local optimistic copy with server copy
-      const idx = sigToIdx.get(inSig);
-      existing[idx] = msg;
+      const idx = sigToIdx.get(inSig)
+      existing[idx] = msg
 
-      // keep indexes consistent for any subsequent matches
-      const newId = String(msg._id || msg.id || '');
-      if (newId) idToIdx.set(newId, idx);
-      sigToIdx.set(inSig, idx);
-      continue;
+      const newId = String(msg._id || msg.id || '')
+      if (newId) idToIdx.set(newId, idx)
+      sigToIdx.set(inSig, idx)
+      continue
     }
 
     // truly new message → append
-    idToIdx.set(inId || `idx-${existing.length}`, existing.length);
-    sigToIdx.set(inSig, existing.length);
-    existing.push(msg);
+    idToIdx.set(inId || `idx-${existing.length}`, existing.length)
+    sigToIdx.set(inSig, existing.length)
+    existing.push(msg)
   }
 
   // keep chronological order
-  existing.sort((a, b) => new Date(a.time || a.at || 0) - new Date(b.time || b.at || 0));
+  existing.sort((a, b) => new Date(a.time || a.at || 0) - new Date(b.time || b.at || 0))
 }
 
 /* soft signature for id-less duplicates */
 function authorOf(m) {
-  // always prefer the DB ref if present; fall back to legacy userID/senderId
   return String(
     (m && (m.fromRef ?? m.senderRef)) ??
     (m && (m.fromUserID ?? m.senderId)) ??
     ''
-  );
+  )
 }
-
 function softSig(m) {
-  const text = String((m?.text || '')).trim().toLowerCase();
-  const author = authorOf(m);
-  const t = new Date(m?.time || m?.at || 0).getTime() || 0;
-  // 10s bucket to absorb tiny clock drift and server processing delay
-  const bucket = Math.floor(t / 10000);
-  return `${author}|${text}|${bucket}`;
+  const text = String((m?.text || '')).trim().toLowerCase()
+  const author = authorOf(m)
+  const t = new Date(m?.time || m?.at || 0).getTime() || 0
+  const bucket = Math.floor(t / 10000) // 10s bucket for drift
+  return `${author}|${text}|${bucket}`
 }
 
 /* keep scroll position without jump (no flashing) */
@@ -375,27 +391,7 @@ async function markRead (convId) {
   } catch { /* ignore during poll */ }
 }
 
-/* start conversation (unchanged from your code) */
-async function startConversation (targetId, subject = '', initialMessage = '') {
-  if (!targetId) return
-  if (!me.value || !me.value.userType) { showError('User not loaded'); return }
-  if (me.value.userType !== 'employer') { showError('Only employers can start conversations.'); return }
-  startingConv.value = true
-  try {
-    const payload = { to: targetId, subject, initialMessage }
-    const res = await axios.post(url('/conversations'), payload, { headers: authHeaders() })
-    const conv = res.data
-    const convId = conv._id || conv.id || null
-    await loadConversations()
-    if (convId) await openConversation(convId)
-    else await loadConversations()
-  } catch (err) {
-    showError(err?.response?.data || err?.message || 'Failed to create conversation')
-  } finally { startingConv.value = false }
-}
-
 /* UI helpers */
-// make openChatFromList close the sidebar on mobile after opening
 async function openChatFromList (c) {
   if (!c || !c.id) return
   await openConversation(String(c.id))
@@ -426,20 +422,19 @@ watch(() => route.params.id, (val) => {
   if (activeConvId.value) openConversation(activeConvId.value)
 })
 
-// if the active conversation is set programmatically (route change etc) and we're on mobile, collapse the sidebar.
+// collapse sidebar when a convo becomes active on mobile
 watch(activeConvId, (val) => {
   if (val && isMobile.value) sidebarOpen.value = false
 })
 
 onMounted(async () => {
-  // set up resize handler for mobile detection & initialise
   handleResize()
   window.addEventListener('resize', handleResize)
 
-  await loadConversations()                                  // initial list
+  await loadConversations()
   if (activeConvId.value) await openConversation(activeConvId.value)
 
-  // 1s poll without flashing: silent list refresh + in-place active reconcile
+  // 1s poll without flashing
   pollTimer = setInterval(() => {
     loadConversations({ silent: true })
     refreshActive({ silent: true })
@@ -461,11 +456,10 @@ onBeforeUnmount(() => {
         <div class="text-2xl font-semibold">Messages</div>
       </div>
 
-      <!-- CARD: make this element the relative container for the sidebar overlay (sidebar lives *inside* the card) -->
+      <!-- CARD is the relative container (sidebar & overlay live inside) -->
       <div class="bg-white rounded-xl shadow-md overflow-hidden relative">
-        <!-- keep the 12-col structure for desktop -->
         <div class="grid grid-cols-12">
-          <!-- Overlay when sidebar is open on mobile (constrained to the card) -->
+          <!-- Translucent overlay confined to the card -->
           <transition name="fade">
             <div
               v-if="isMobile && sidebarOpen"
@@ -474,11 +468,11 @@ onBeforeUnmount(() => {
             />
           </transition>
 
-          <!-- LEFT: Conversations list (sidebar) - now positioned inside the card (absolute on mobile) -->
+          <!-- LEFT: Sidebar (absolute inside the card on mobile) -->
           <aside
-            :style="isMobile ? 'background: rgba(255,255,255,0.94)' : ''" :class="[
+            :style="isMobile ? 'background: rgba(255,255,255,0.94)' : ''"
+            :class="[
               'col-span-4 border-r border-gray-100 p-4 transition-transform duration-200 ease-in-out bg-white',
-              // mobile behaviour: sliding absolute sidebar inside the card; desktop: regular relative column
               isMobile
                 ? (sidebarOpen ? 'absolute left-0 top-0 bottom-0 w-72 z-50 translate-x-0 shadow-lg' : 'absolute left-0 top-0 bottom-0 w-72 z-50 -translate-x-full')
                 : 'relative'
@@ -492,7 +486,6 @@ onBeforeUnmount(() => {
                 placeholder="Search..."
                 class="w-full rounded-full border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--mediumBlue)]"
               />
-              <!-- close button shown on mobile inside sidebar -->
               <button v-if="isMobile" @click="sidebarOpen = false" class="ml-2 text-sm px-3 py-1 rounded-md border border-gray-200">Close</button>
             </div>
 
@@ -538,12 +531,11 @@ onBeforeUnmount(() => {
             </div>
           </aside>
 
-          <!-- RIGHT: active chat -->
+          <!-- RIGHT: Chat fills card on mobile -->
           <main :class="[isMobile ? 'col-span-12 p-4 w-full' : 'col-span-8 p-4']">
             <div class="flex flex-col h-[60vh]">
               <div class="border-b border-gray-100 pb-3 mb-3 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <!-- hamburger to open sidebar on mobile -->
                   <button v-if="isMobile" @click="sidebarOpen = true" class="p-2 rounded-md border border-gray-200">☰</button>
 
                   <div v-if="activeConversation" class="flex items-center justify-between">
@@ -619,21 +611,16 @@ onBeforeUnmount(() => {
 <style scoped>
 button:disabled { cursor: not-allowed; }
 
-/* Small screen adjustments (keep layout but tune heights / fonts) */
+/* Small screen adjustments */
 @media (max-width: 768px) {
-  /* heights */
-  .h-\[60vh\] {
-    height: 65vh;
-  }
+  .h-\[60vh\] { height: 65vh; }
 
-  /* message bubbles get full width and smaller font */
   .flex.justify-end > div,
   .flex.justify-start > div {
     max-width: 85%;
     font-size: 0.95rem;
   }
 
-  /* composer spacing */
   .mt-3.pt-3.border-t {
     position: sticky;
     bottom: 0;
@@ -642,20 +629,18 @@ button:disabled { cursor: not-allowed; }
     padding-bottom: 0.5rem;
   }
 
-  /* search bar spacing */
   input[type="search"] {
     font-size: 0.9rem;
     padding: 0.4rem 0.8rem;
   }
 
-  /* send button smaller on phones */
   button.rounded-full.bg-\[var\(--mediumBlue\)\] {
     padding: 0.4rem 0.9rem;
     font-size: 0.9rem;
   }
 }
 
-/* transition for overlay fade (small nicety) */
+/* overlay fade */
 .fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
