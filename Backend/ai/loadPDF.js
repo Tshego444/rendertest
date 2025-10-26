@@ -47,7 +47,8 @@ class PDFReader {
     const docFiles = [
       path.join(this.docsPath, "EPE_321_Project_Proposal_u22646494.pdf"),
       path.join(this.docsPath, "EPE_321_SRS_u22646494.pdf"),
-      path.join(this.docsPath, "EPE_Group_11_Design_Doc.pdf")
+      path.join(this.docsPath, "EPE_Group_11_Design_Doc.pdf"),
+      path.join(this.docsPath, "moreInfo.pdf")
     ];
 
     const extractedDocs = {};
@@ -73,6 +74,7 @@ class PDFReader {
     if (name.includes('proposal')) return 'proposal';
     if (name.includes('srs')) return 'requirements';
     if (name.includes('design')) return 'design';
+    if (name.includes('moreinfo')) return 'moreInfo';
     return 'general';
   }
 
@@ -94,6 +96,10 @@ class PDFReader {
       
       if (docs.design) {
         knowledgeBase += `=== DESIGN DOCUMENT ===\n${docs.design.text}\n\n`;
+      }
+
+      if (docs.moreInfo) { // ✅ Added section
+        knowledgeBase += `=== ADDITIONAL INFORMATION ===\n${docs.moreInfo.text}\n\n`;
       }
       
       // Add any other general docs
