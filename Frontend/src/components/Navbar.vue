@@ -1,131 +1,145 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 
-// Dropdown state
+// --- State & refs ---
 const dropdownOpen = ref(false)
-// Reference to nav root element
 const navRoot = ref(null)
-// Router and current route
+const triggerRef = ref(null)       // anchor button to measure for dropdown placement
+const dropdownStyle = ref({})      // dynamic inline style for teleported dropdown
+
 const router = useRouter()
 const route = useRoute()
-// User store for authentication and data
 const userStore = useUserStore()
 
-// Toggle dropdown open/close
-function toggleDropdown() {
-  dropdownOpen.value = !dropdownOpen.value
-}
-
-// Close dropdown
-function closeDropdown() {
+// --- UI actions ---
+function toggleDropdown () { dropdownOpen.value = !dropdownOpen.value }
+function closeDropdown () {
   dropdownOpen.value = false
+  // cleanup listeners if any remained
+  window.removeEventListener('scroll', positionDropdown)
+  window.removeEventListener('resize', positionDropdown)
 }
 
-// Close dropdown if clicked outside nav
-function onDocumentClick(e) {
+function onDocumentClick (e) {
+  // Close when clicking outside the navbar area
   if (!navRoot.value) return
   if (!navRoot.value.contains(e.target)) closeDropdown()
 }
+function onKeydown (e) { if (e.key === 'Escape') closeDropdown() }
 
-// Close dropdown on Escape key
-function onKeydown(e) {
-  if (e.key === 'Escape') closeDropdown()
-}
-
-// Logout user and redirect home
-function logout() {
+function logout () {
   userStore.logout()
   router.push('/')
 }
 
-// Accept optional userType prop
+// --- Props / user type ---
 const props = defineProps({
-  userType: {
-    type: String,
-    default: ''
-  }
+  userType: { type: String, default: '' }
 })
 
-// Determine user type (normalized, defensive)
 const effectiveUserType = computed(() => {
-  // Priority: prop -> store.user.userType -> store.user.role -> default 'seeker'
   const fromProp = (props.userType || '').toString().trim().toLowerCase()
-  const storeUser = userStore?.user || {}
-  const fromStore = (storeUser.userType || storeUser.role || '').toString().trim().toLowerCase()
+  const u = userStore?.user || {}
+  const fromStore = (u.userType || u.role || '').toString().trim().toLowerCase()
   return fromProp || fromStore || 'seeker'
 })
 
-// Determine if this user is employer
 const isEmployer = computed(() => {
   const t = (effectiveUserType.value || '').toString().toLowerCase()
   return t === 'employer' || t.includes('employ') || t === 'company'
 })
 
-// Routes differ for employer vs seeker
-const routes = computed(() => {
-  return {
-    profile: isEmployer.value ? '/employer/profile' : '/profile',
-    applications: '/applications'
-  }
-})
+const routes = computed(() => ({
+  profile: isEmployer.value ? '/employer/profile' : '/profile',
+  applications: '/applications'
+}))
 
-// Navigate to route key and close dropdown
-function goTo(key) {
+function goTo (key) {
   const to = routes.value[key]
-  if (!to) return closeDropdown()
   closeDropdown()
-  router.push(to)
+  if (to) router.push(to)
 }
 
-// Display name (seeker => user.name, employer => user.company.name)
+// --- Display helpers ---
 const displayName = computed(() => {
   const u = userStore?.user || {}
-  // Employer: prefer company.name
-  if (isEmployer.value) {
-    return u.company?.name || u.name || u.userID || 'User'
-  }
-  // Seeker or default: prefer name
-  return u.name || u.company?.name || u.userID || 'User'
+  return isEmployer.value
+    ? (u.company?.name || u.name || u.userID || 'User')
+    : (u.name || u.company?.name || u.userID || 'User')
 })
 
-// Sub line under name (small text) - show type or company location if available
 const displaySub = computed(() => {
   const u = userStore?.user || {}
-  if (isEmployer.value) {
-    // show company location if available, otherwise userType
-    return u.company?.location || (u.userType || u.role || '').toString()
-  }
-  // seeker: show userType or location if in profile
-  return u.userType || u.role || u.profile?.location || ''
+  return isEmployer.value
+    ? (u.company?.location || (u.userType || u.role || '').toString())
+    : (u.userType || u.role || u.profile?.location || '')
 })
 
-// Avatar initial from displayName (first char uppercase)
 const avatarInitial = computed(() => {
   const name = (displayName.value || 'U').toString().trim()
   return name.charAt(0).toUpperCase()
 })
 
-// Add global event listeners on mount
+// --- Dropdown positioning (key fix) ---
+function positionDropdown () {
+  const btn = triggerRef.value
+  if (!btn) return
+  const rect = btn.getBoundingClientRect()
+  const GAP = 8
+  const PANEL_MIN_W = 192 // 12rem, matches w-48
+
+  // base width: at least 12rem, or as wide as trigger
+  const panelW = Math.max(rect.width, PANEL_MIN_W)
+
+  // Align right edges (like absolute right-0), clamp to viewport
+  let left = rect.right - panelW
+  left = Math.max(8, Math.min(left, window.innerWidth - panelW - 8))
+
+  const top = rect.bottom + GAP
+
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: `${Math.round(top)}px`,
+    left: `${Math.round(left)}px`,
+    minWidth: `${Math.round(panelW)}px`,
+    zIndex: 2147483647
+  }
+}
+
+watch(dropdownOpen, async (open) => {
+  if (open) {
+    await nextTick()
+    positionDropdown()
+    window.addEventListener('scroll', positionDropdown, { passive: true })
+    window.addEventListener('resize', positionDropdown, { passive: true })
+  } else {
+    window.removeEventListener('scroll', positionDropdown)
+    window.removeEventListener('resize', positionDropdown)
+  }
+})
+
+// --- Lifecycle ---
 onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
+  document.addEventListener('click', onDocumentClick, { capture: true })
   document.addEventListener('keydown', onKeydown)
 })
 
-// Remove listeners on unmount
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('click', onDocumentClick, { capture: true })
   document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('scroll', positionDropdown)
+  window.removeEventListener('resize', positionDropdown)
 })
 </script>
 
-
 <template>
-  <header class="w-full">
+  <!-- Always-on-top navbar -->
+  <header class="w-full sticky top-0 z-[2147483647] isolate pointer-events-auto">
     <div class="mx-auto max-w-7xl px-3 py-3">
       <div
-        class="flex items-center justify-between gap-4 rounded-2xl bg-white backdrop-blur-sm border border-gray-100 shadow-md p-2"
+        class="flex items-center justify-between gap-4 rounded-2xl bg-white/95 backdrop-blur-sm border border-gray-100 shadow-md p-2"
       >
         <!-- Brand -->
         <RouterLink to="/feed" class="flex items-center gap-3 no-underline">
@@ -137,8 +151,6 @@ onBeforeUnmount(() => {
 
         <!-- Actions -->
         <div class="flex items-center gap-2 ml-auto">
-          <!-- Undo (show only when seeker on /feed) -->
-
           <!-- Messages -->
           <RouterLink
             v-if="userStore.user.userType == 'seeker' || userStore.user.userType == 'employer'"
@@ -153,6 +165,7 @@ onBeforeUnmount(() => {
           <!-- Profile / Dropdown -->
           <div class="relative" ref="navRoot">
             <button
+              ref="triggerRef"
               @click.prevent="toggleDropdown"
               :aria-expanded="dropdownOpen"
               class="flex items-center gap-3 btn profile-btn"
@@ -176,43 +189,48 @@ onBeforeUnmount(() => {
               <FontAwesomeIcon class="text-lg" icon="caret-down" />
             </button>
 
-            <transition name="fade-scale">
-              <div
-                v-if="dropdownOpen"
-                class="origin-top-right absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg overflow-hidden dropdown"
-                role="menu"
-                aria-orientation="vertical"
-                aria-labelledby="user-menu"
-              >
-                <button
-                  v-if="userStore.user.userType == 'seeker' || userStore.user.userType == 'employer'"
-                  @click="goTo('profile')"
-                  class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
-                  role="menuitem"
+            <!-- Dropdown teleported to body; positioned via inline style -->
+            <teleport to="body">
+              <transition name="fade-scale" @enter="positionDropdown">
+                <div
+                  v-if="dropdownOpen"
+                  class="origin-top-right fixed rounded-lg bg-white shadow-lg overflow-hidden dropdown"
+                  role="menu"
+                  aria-orientation="vertical"
+                  aria-labelledby="user-menu"
+                  :style="dropdownStyle"
+                  @click.stop
                 >
-                  Profile
-                </button>
+                  <button
+                    v-if="userStore.user.userType == 'seeker' || userStore.user.userType == 'employer'"
+                    @click="goTo('profile')"
+                    class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
+                    role="menuitem"
+                  >
+                    Profile
+                  </button>
 
-                <button
-                  v-if="userStore.user.userType == 'seeker'"
-                  @click="goTo('applications')"
-                  class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
-                  role="menuitem"
-                >
-                  Applications
-                </button>
+                  <button
+                    v-if="userStore.user.userType == 'seeker'"
+                    @click="goTo('applications')"
+                    class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
+                    role="menuitem"
+                  >
+                    Applications
+                  </button>
 
-                <div class="border-t border-slate-100"></div>
+                  <div class="border-t border-slate-100"></div>
 
-                <button
-                  @click="logout"
-                  class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
-                  role="menuitem"
-                >
-                  Logout
-                </button>
-              </div>
-            </transition>
+                  <button
+                    @click="logout"
+                    class="block w-full text-left px-4 py-3 text-sm hover:bg-slate-50 cursor-pointer"
+                    role="menuitem"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </transition>
+            </teleport>
           </div>
         </div>
       </div>
@@ -233,9 +251,10 @@ onBeforeUnmount(() => {
   transition: transform .12s ease, box-shadow .12s ease;
 }
 
+/* Dropdown (teleported) */
 .dropdown {
   border: solid #fff 1px;
-  z-index: 9999;
+  z-index: 2147483647; /* keep above everything */
 }
 
 /* Small action buttons (icons) */
@@ -268,7 +287,6 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /*background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%); */
   background-color: var(--darkBlue);
   box-shadow: 0 4px 10px rgba(99,102,241,0.12);
   color: white;
