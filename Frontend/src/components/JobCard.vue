@@ -151,7 +151,6 @@ async function acceptJob() {
   transformStyle.value = 'transform: translateX(40px) rotate(2deg); opacity: 0.85; transition: all 0.25s ease;'
 
   // delay actual apply logic slightly to allow tap animation to show (250ms)
-  setTimeout(async () => {
     applying.value = true
     try {
       const jobId = currentJob.value.jobID
@@ -185,7 +184,6 @@ async function acceptJob() {
       transformStyle.value = ''
       cardAnimating.value = false
     }
-  }, 250)
 }
 
 // keyboard shortcuts
