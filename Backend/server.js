@@ -1435,13 +1435,13 @@ if (require.main === module) startServer();
 // Seed admin (kept as in your original)
 async function seedAdmin() {
   try {
-    const existingAdmin = await User.findOne({ role: "admin" });
+    const existingAdmin = await User.findOne({ userType: "admin" });
     if (existingAdmin) {
       console.log("Admin account already exists:", existingAdmin.email);
       return;
     }
     const passwordHash = await bcrypt.hash("admin123", 10);
-    const admin = new User({ email: "admin@jobswipe.com", passwordHash, role: "admin" });
+    const admin = new User({ email: "admin@jobswipe.com", passwordHash, userType: "admin" });
     await admin.save();
     console.log("Default admin created:", admin.email);
   } catch (err) {
