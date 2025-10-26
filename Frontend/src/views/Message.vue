@@ -1,4 +1,3 @@
-<!-- Frontend/src/views/Message.vue -->
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -36,6 +35,19 @@ const messagesContainerRef = ref(null)
 
 let pollTimer = null
 
+/* ───────── sidebar / mobile ───────── */
+// sidebar open state; on desktop it remains open
+const sidebarOpen = ref(true)
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
+
+function handleResize () {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) {
+    // ensure sidebar is visible in desktop
+    sidebarOpen.value = true
+  }
+}
+
 /* ───────── helpers ───────── */
 function authHeaders () {
   const token = userStore.token || localStorage.getItem('token') || ''
@@ -46,6 +58,14 @@ const url = (p) => `${BACKEND_BASE}${p}`
 const safeMessages = computed(() => {
   const c = activeConversation.value
   return c && Array.isArray(c.messages) ? c.messages : []
+})
+
+// filtered list used by the template (search works reactively)
+const filteredConvs = computed(() => {
+  const q = (search.value || '').toLowerCase()
+  return convs.value.filter(x => {
+    return !q || (x.displayName || '').toLowerCase().includes(q) || (x.displaySub || '').toLowerCase().includes(q)
+  })
 })
 
 function formatDate (iso) {
@@ -375,9 +395,11 @@ async function startConversation (targetId, subject = '', initialMessage = '') {
 }
 
 /* UI helpers */
-function openChatFromList (c) {
+// make openChatFromList close the sidebar on mobile after opening
+async function openChatFromList (c) {
   if (!c || !c.id) return
-  openConversation(String(c.id))
+  await openConversation(String(c.id))
+  if (isMobile.value) sidebarOpen.value = false
 }
 function myMongoId () { return String(me.value?.id || me.value?._id || '') }
 function myUserID () { return me.value?.userID || null }
@@ -404,7 +426,16 @@ watch(() => route.params.id, (val) => {
   if (activeConvId.value) openConversation(activeConvId.value)
 })
 
+// if the active conversation is set programmatically (route change etc) and we're on mobile, collapse the sidebar.
+watch(activeConvId, (val) => {
+  if (val && isMobile.value) sidebarOpen.value = false
+})
+
 onMounted(async () => {
+  // set up resize handler for mobile detection & initialise
+  handleResize()
+  window.addEventListener('resize', handleResize)
+
   await loadConversations()                                  // initial list
   if (activeConvId.value) await openConversation(activeConvId.value)
 
@@ -415,7 +446,10 @@ onMounted(async () => {
   }, 1000)
 })
 
-onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer)
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <template>
@@ -423,12 +457,34 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
     <Navbar />
 
     <div class="max-w-6xl mx-auto p-6">
-      <div class="text-2xl font-semibold mb-4">Messages</div>
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-2xl font-semibold">Messages</div>
+      </div>
 
-      <div class="bg-white rounded-xl shadow-md overflow-hidden">
+      <!-- CARD: make this element the relative container for the sidebar overlay (sidebar lives *inside* the card) -->
+      <div class="bg-white rounded-xl shadow-md overflow-hidden relative">
+        <!-- keep the 12-col structure for desktop -->
         <div class="grid grid-cols-12">
-          <!-- LEFT: Conversations list -->
-          <aside class="col-span-4 border-r border-gray-100 p-4">
+          <!-- Overlay when sidebar is open on mobile (constrained to the card) -->
+          <transition name="fade">
+            <div
+              v-if="isMobile && sidebarOpen"
+              class="absolute inset-0 bg-black bg-opacity-20 z-40 rounded-xl"
+              @click="sidebarOpen = false"
+            />
+          </transition>
+
+          <!-- LEFT: Conversations list (sidebar) - now positioned inside the card (absolute on mobile) -->
+          <aside
+            :style="isMobile ? 'background: rgba(255,255,255,0.94)' : ''" :class="[
+              'col-span-4 border-r border-gray-100 p-4 transition-transform duration-200 ease-in-out bg-white',
+              // mobile behaviour: sliding absolute sidebar inside the card; desktop: regular relative column
+              isMobile
+                ? (sidebarOpen ? 'absolute left-0 top-0 bottom-0 w-72 z-50 translate-x-0 shadow-lg' : 'absolute left-0 top-0 bottom-0 w-72 z-50 -translate-x-full')
+                : 'relative'
+            ]"
+            style="overflow-y: auto;"
+          >
             <div class="flex items-center gap-3 mb-4">
               <input
                 v-model="search"
@@ -436,6 +492,8 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
                 placeholder="Search..."
                 class="w-full rounded-full border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--mediumBlue)]"
               />
+              <!-- close button shown on mobile inside sidebar -->
+              <button v-if="isMobile" @click="sidebarOpen = false" class="ml-2 text-sm px-3 py-1 rounded-md border border-gray-200">Close</button>
             </div>
 
             <div class="h-[60vh] overflow-y-auto">
@@ -445,10 +503,7 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
 
               <template v-else-if="convs.length">
                 <div
-                  v-for="c in convs.filter(x => {
-                    const q = (search || '').toLowerCase()
-                    return !q || (c.displayName||'').toLowerCase().includes(q) || (c.displaySub||'').toLowerCase().includes(q)
-                  })"
+                  v-for="c in filteredConvs"
                   :key="c.id"
                   class="border-b border-gray-100 last:border-0"
                 >
@@ -484,20 +539,25 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
           </aside>
 
           <!-- RIGHT: active chat -->
-          <main class="col-span-8 p-4">
+          <main :class="[isMobile ? 'col-span-12 p-4 w-full' : 'col-span-8 p-4']">
             <div class="flex flex-col h-[60vh]">
-              <div class="border-b border-gray-100 pb-3 mb-3">
-                <div v-if="activeConversation" class="flex items-center justify-between">
-                  <div>
-                    <div class="text-lg font-semibold">
-                      {{ conversationTitle }}
+              <div class="border-b border-gray-100 pb-3 mb-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <!-- hamburger to open sidebar on mobile -->
+                  <button v-if="isMobile" @click="sidebarOpen = true" class="p-2 rounded-md border border-gray-200">☰</button>
+
+                  <div v-if="activeConversation" class="flex items-center justify-between">
+                    <div>
+                      <div class="text-lg font-semibold">
+                        {{ conversationTitle }}
+                      </div>
+                      <div class="text-xs text-slate-500">
+                        {{ otherUser?.email || activeConversation.subject || '' }}
+                      </div>
                     </div>
-                    <div class="text-xs text-slate-500">
-                    {{ otherUser?.email || activeConversation.subject || '' }}
                   </div>
-                  </div>
+                  <div v-else class="text-slate-600">Select a conversation to view messages</div>
                 </div>
-                <div v-else class="text-slate-600">Select a conversation to view messages</div>
               </div>
 
               <div ref="messagesContainerRef" class="flex-1 overflow-y-auto px-2 py-3 space-y-4">
@@ -559,25 +619,9 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
 <style scoped>
 button:disabled { cursor: not-allowed; }
 
-/* ───────── Mobile adjustments ───────── */
+/* Small screen adjustments (keep layout but tune heights / fonts) */
 @media (max-width: 768px) {
-  /* stack the columns vertically */
-  .grid {
-    display: flex;
-    flex-direction: column;
-  }
-
-  aside.col-span-4 {
-    border-right: none;
-    border-bottom: 1px solid #f1f1f1;
-    padding: 0.75rem 1rem;
-  }
-
-  main.col-span-8 {
-    padding: 0.75rem 1rem;
-  }
-
-  /* adjust heights for smaller screens */
+  /* heights */
   .h-\[60vh\] {
     height: 65vh;
   }
@@ -586,7 +630,7 @@ button:disabled { cursor: not-allowed; }
   .flex.justify-end > div,
   .flex.justify-start > div {
     max-width: 85%;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
   }
 
   /* composer spacing */
@@ -610,4 +654,8 @@ button:disabled { cursor: not-allowed; }
     font-size: 0.9rem;
   }
 }
+
+/* transition for overlay fade (small nicety) */
+.fade-enter-active, .fade-leave-active { transition: opacity .18s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
