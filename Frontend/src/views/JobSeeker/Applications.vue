@@ -7,6 +7,8 @@ import axios from 'axios'
 import { useError } from '@/components/useError'
 import { useSuccess } from '@/components/useSuccess'
 
+import Spinner from '@/components/Spinner.vue'
+
 const { showError } = useError()
 const { showSuccess } = useSuccess()
 const userStore = useUserStore()
@@ -125,6 +127,8 @@ onMounted(() => {
 <template>
   <Navbar />
 
+  
+
   <div class="flex flex-1 justify-center px-4 py-8 sm:px-6 md:px-10">
     <div class="w-full max-w-4xl">
       <div class="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
@@ -167,7 +171,10 @@ onMounted(() => {
           </button>
         </div>
       </div>
-      <div class="space-y-6">
+      <div class="space-y-6 relative">
+        <div v-if="loading" class="absolute top-5 right-5 z-20">
+          <Spinner size="26" color="#3b82f6" />
+        </div>
         <ApplicationCard
           v-for="application in filteredApplications"
           :key="application.jobID"
@@ -194,5 +201,9 @@ onMounted(() => {
 .selected {
   background-color: var(--mediumBlue);
   color: #fff;
+}
+
+.relative {
+  position: relative;
 }
 </style>
