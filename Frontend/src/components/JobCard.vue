@@ -19,6 +19,7 @@ const loading = ref(true)
 const readMore = ref(false)
 const transformStyle = ref('')
 const applying = ref(false) // prevents double apply clicks
+const cardAnimating = ref(false) // added: prevents multiple animations/actions while animating
 
 // computed: viewed IDs pulled from user object
 const viewedIds = computed(() => {
@@ -124,45 +125,67 @@ async function markViewedAndNext() {
 
 
 // convenience helpers for UI actions
-function skipJob() { markViewedAndNext() }
+// modified: animate then call markViewedAndNext
+function skipJob() {
+  if (cardAnimating.value) return
+  cardAnimating.value = true
+  transformStyle.value = 'transform: translateX(-40px) rotate(-2deg); opacity: 0.85; transition: all 0.25s ease;'
+  setTimeout(async () => {
+    try {
+      await markViewedAndNext()
+    } finally {
+      transformStyle.value = ''
+      cardAnimating.value = false
+    }
+  }, 250)
+}
 
 // NEW: acceptJob -> create application on backend then mark viewed + next
+// modified: animate on press (but preserve applying guard and backend logic)
 async function acceptJob() {
   if (!currentJob.value) return
-  if (applying.value) return
-  applying.value = true
+  if (applying.value || cardAnimating.value) return
 
-  try {
-    const jobId = currentJob.value.jobID
-    const token = userStore.token || localStorage.getItem('token') || ''
-    const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  // start animation immediately
+  cardAnimating.value = true
+  transformStyle.value = 'transform: translateX(40px) rotate(2deg); opacity: 0.85; transition: all 0.25s ease;'
 
-    const url = `/jobs/${encodeURIComponent(jobId)}/apply`
+  // delay actual apply logic slightly to allow tap animation to show (250ms)
+  setTimeout(async () => {
+    applying.value = true
     try {
-      const resp = await axios.post(url, {}, { headers })
-      console.log('Apply response:', resp?.data)
-    } catch (applyErr) {
-      // If already applied, backend returns 400 "Already applied" — treat as success and continue
-      const status = applyErr?.response?.status
-      const data = applyErr?.response?.data
-      if (status === 400 && typeof data === 'string' && data.toLowerCase().includes('already applied')) {
-        showSuccess('You have already applied to this job')
-      } else {
-        // unexpected error — show and stop advancing
-        console.error('Apply failed:', applyErr)
-        const msg = applyErr?.response?.data || applyErr?.message || 'Failed to apply'
-        showError(typeof msg === 'string' ? msg : 'Failed to apply')
-        // still mark viewed and move on could be desired, but we stop here to let user retry
-        applying.value = false
-        return
-      }
-    }
+      const jobId = currentJob.value.jobID
+      const token = userStore.token || localStorage.getItem('token') || ''
+      const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-    // after successful apply (or already applied), mark viewed and advance
-    await markViewedAndNext()
-  } finally {
-    applying.value = false
-  }
+      const url = `/jobs/${encodeURIComponent(jobId)}/apply`
+      try {
+        const resp = await axios.post(url, {}, { headers })
+        console.log('Apply response:', resp?.data)
+      } catch (applyErr) {
+        // If already applied, backend returns 400 "Already applied" — treat as success and continue
+        const status = applyErr?.response?.status
+        const data = applyErr?.response?.data
+        if (status === 400 && typeof data === 'string' && data.toLowerCase().includes('already applied')) {
+          showSuccess('You have already applied to this job')
+        } else {
+          // unexpected error — show and stop advancing
+          console.error('Apply failed:', applyErr)
+          const msg = applyErr?.response?.data || applyErr?.message || 'Failed to apply'
+          showError(typeof msg === 'string' ? msg : 'Failed to apply')
+          // stop here so user can retry; reset flags and animation
+          return
+        }
+      }
+
+      // after successful apply (or already applied), mark viewed and advance
+      await markViewedAndNext()
+    } finally {
+      applying.value = false
+      transformStyle.value = ''
+      cardAnimating.value = false
+    }
+  }, 250)
 }
 
 // keyboard shortcuts
@@ -332,18 +355,24 @@ onUnmounted(() => {
       <FontAwesomeIcon class="cursor-pointer bg-white text-3xl rounded-full p-4 shadow" icon="check" style="color: green" /> 
     </button>
 
-    <!-- Mobile action bar (shown only on small screens) -->
-    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-2xl sm:hidden flex items-center justify-between gap-4 bg-white/90 backdrop-blur rounded-full px-4 py-3 shadow-lg border border-gray-100">
-      <button @click="skipJob" aria-label="Skip" class="flex-1 flex items-center justify-center gap-2 py-2 rounded-full">
-        <FontAwesomeIcon icon="x" />
-        <span class="text-sm">Skip</span>
+    <!-- Mobile floating action bar -->
+    <div
+      class="fixed bottom-5 left-1/2 -translate-x-1/2 w-[92%] max-w-md sm:hidden flex justify-around items-center gap-6 
+             bg-white/95 backdrop-blur-md border border-gray-200 rounded-full px-6 py-3 shadow-xl z-50">
+      <button
+        @click="skipJob"
+        aria-label="Skip"
+        class="flex flex-col items-center justify-center gap-1 text-gray-700 hover:text-red-600 active:scale-95 transition-all duration-150">
+        <FontAwesomeIcon :icon="['fas','xmark']" class="text-2xl" />
+        <span class="text-xs font-medium">Skip</span>
       </button>
 
-      <div class="w-px h-6 bg-gray-200" />
-
-      <button @click="acceptJob" aria-label="Accept" class="flex-1 flex items-center justify-center gap-2 py-2 rounded-full">
-        <FontAwesomeIcon icon="check" />
-        <span class="text-sm">Apply</span>
+      <button
+        @click="acceptJob"
+        aria-label="Apply"
+        class="flex flex-col items-center justify-center gap-1 text-gray-700 hover:text-green-600 active:scale-95 transition-all duration-150">
+        <FontAwesomeIcon :icon="['fas','check']" class="text-2xl" />
+        <span class="text-xs font-medium">Apply</span>
       </button>
     </div>
   </div>
@@ -358,4 +387,17 @@ onUnmounted(() => {
 
 /* subtle pulse on apply (for show, not automatic) */
 @keyframes apply-pulse { 0%{ transform: scale(1) } 50%{ transform: scale(1.03) } 100%{ transform: scale(1) } }
+
+/* small tap feedback for buttons */
+button:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+/* Slight "pop" for action feedback */
+@keyframes press-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
 </style>
