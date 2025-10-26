@@ -130,14 +130,12 @@ function skipJob() {
   if (cardAnimating.value) return
   cardAnimating.value = true
   transformStyle.value = 'transform: translateX(-40px) rotate(-2deg); opacity: 0.85; transition: all 0.25s ease;'
-  setTimeout(async () => {
     try {
       await markViewedAndNext()
     } finally {
       transformStyle.value = ''
       cardAnimating.value = false
     }
-  }, 250)
 }
 
 // NEW: acceptJob -> create application on backend then mark viewed + next
