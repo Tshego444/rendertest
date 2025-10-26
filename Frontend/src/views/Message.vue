@@ -422,13 +422,16 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
   <div class="min-h-screen">
     <Navbar />
 
-    <div class="max-w-6xl mx-auto p-6">
-      <div class="text-2xl font-semibold mb-4">Messages</div>
+    <div class="max-w-6xl mx-auto p-4 md:p-6">
+      <div class="text-xl md:text-2xl font-semibold mb-4">Messages</div>
 
       <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <div class="grid grid-cols-12">
+        <div class="grid md:grid-cols-12">
           <!-- LEFT: Conversations list -->
-          <aside class="col-span-4 border-r border-gray-100 p-4">
+          <aside
+            class="border-r border-gray-100 p-4 md:col-span-4"
+            :class="activeConvId && isMobile ? 'hidden' : 'block'"
+          >
             <div class="flex items-center gap-3 mb-4">
               <input
                 v-model="search"
@@ -438,7 +441,7 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
               />
             </div>
 
-            <div class="h-[60vh] overflow-y-auto">
+            <div class="h-[60vh] md:h-[70vh] overflow-y-auto">
               <div v-if="loadingConvs" class="p-4 flex items-center justify-center">
                 <Spinner size="28" />
               </div>
@@ -460,10 +463,10 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
                     <div class="flex-1">
                       <div class="flex justify-between items-start gap-2">
                         <div>
-                          <div class="font-medium text-slate-900">
-                            {{ c.displayName || (c.subject || (c.lastMessage?.text ? (c.lastMessage.text.length > 40 ? c.lastMessage.text.slice(0,40)+'…' : c.lastMessage.text) : 'Conversation')) }}
+                          <div class="font-medium text-slate-900 truncate">
+                            {{ c.displayName }}
                           </div>
-                          <div class="text-xs text-slate-500 truncate max-w-[180px]">{{ c.displaySub }}</div>
+                          <div class="text-xs text-slate-500 truncate max-w-[160px]">{{ c.displaySub }}</div>
                         </div>
                         <div class="text-right">
                           <div class="text-xs text-slate-400">{{ shortDate(c.lastMessageAt) }}</div>
@@ -478,26 +481,37 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
               </template>
 
               <template v-else>
-                <div class="text-sm text-slate-500 p-3">No conversations yet... Once an employer sends you message, you will be able to reply.</div>
+                <div class="text-sm text-slate-500 p-3">No conversations yet.</div>
               </template>
             </div>
           </aside>
 
           <!-- RIGHT: active chat -->
-          <main class="col-span-8 p-4">
-            <div class="flex flex-col h-[60vh]">
-              <div class="border-b border-gray-100 pb-3 mb-3">
-                <div v-if="activeConversation" class="flex items-center justify-between">
-                  <div>
-                    <div class="text-lg font-semibold">
-                      {{ conversationTitle }}
-                    </div>
-                    <div class="text-xs text-slate-500">
+          <main
+            class="p-4 md:col-span-8"
+            :class="(!activeConvId && isMobile) ? 'hidden' : 'block'"
+          >
+            <div class="flex flex-col h-[60vh] md:h-[70vh]">
+              <div class="border-b border-gray-100 pb-3 mb-3 flex items-center gap-2">
+                <!-- Back button (only on mobile) -->
+                <button
+                  v-if="isMobile && activeConvId"
+                  @click="activeConvId = null"
+                  class="text-[var(--mediumBlue)] font-medium px-2 py-1 rounded-md hover:bg-blue-50"
+                >
+                  ← Back
+                </button>
+
+                <div v-if="activeConversation" class="flex-1">
+                  <div class="text-base md:text-lg font-semibold truncate">
+                    {{ conversationTitle }}
+                  </div>
+                  <div class="text-xs text-slate-500 truncate">
                     {{ otherUser?.email || activeConversation.subject || '' }}
                   </div>
-                  </div>
                 </div>
-                <div v-else class="text-slate-600">Select a conversation to view messages</div>
+
+                <div v-else class="text-slate-600 text-sm">Select a conversation</div>
               </div>
 
               <div ref="messagesContainerRef" class="flex-1 overflow-y-auto px-2 py-3 space-y-4">
@@ -512,13 +526,13 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
                     :class="['flex', isFromMe(m) ? 'justify-end' : 'justify-start']"
                   >
                     <div
-                      :class="[
-                        'max-w-[70%] px-4 py-2 rounded-lg shadow-sm',
+                      :class="[ 
+                        'max-w-[85%] md:max-w-[70%] px-4 py-2 rounded-lg shadow-sm',
                         isFromMe(m) ? 'bg-[var(--mediumBlue)] text-white' : 'bg-gray-100 text-slate-800'
                       ]"
                     >
                       <div class="text-sm break-words">{{ m.text }}</div>
-                      <div class="text-xs mt-1" :class="isFromMe(m) ? 'text-slate-300 text-right' : 'text-slate-500'">
+                      <div class="text-[10px] md:text-xs mt-1" :class="isFromMe(m) ? 'text-slate-300 text-right' : 'text-slate-500'">
                         {{ formatDate(m.time) }}
                       </div>
                     </div>
@@ -536,12 +550,12 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
                     :disabled="!activeConversation"
                     @keydown.enter.exact.prevent="sendMessage"
                     placeholder="Write a message..."
-                    class="flex-1 rounded-full border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--mediumBlue)]"
+                    class="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--mediumBlue)]"
                   />
                   <button
                     @click="sendMessage"
                     :disabled="!activeConversation || !newMessage.trim() || sending"
-                    class="rounded-full bg-[var(--mediumBlue)] text-white px-4 py-2 disabled:opacity-50 cursor-pointer"
+                    class="rounded-full bg-[var(--mediumBlue)] text-white px-4 py-2 text-sm disabled:opacity-50"
                   >
                     <span v-if="sending">Sending…</span>
                     <span v-else>Send</span>
@@ -555,6 +569,7 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
     </div>
   </div>
 </template>
+
 
 <style scoped>
 button:disabled { cursor: not-allowed; }
